@@ -464,6 +464,7 @@ func (r *Requests) getDataByChan(stop chan struct{}) {
 	for {
         select {
         case <-ticker.C:
+        		log.Info("Tick: Getting data...")
             	go r.getData()
         case <- stop:
             return
