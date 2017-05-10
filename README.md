@@ -18,9 +18,9 @@ docker build -t rawmind/rancher-telemetry-stats:<version> .
 
 ## Usage
 
-This image run rancher-telemetry-stats service. rancher-telemetry-stats get metrics from rancher nginx logs files and send them to a influx in order to be explored by a grafana. 
+This image run rancher-telemetry-stats service. rancher-telemetry-stats get metrics from rancher telemetry service and send them to a influx in order to be explored by a grafana. 
 
-If you run in daemon mode it will tail files and send metrics every refresh seconds. 
+It get data every refresh second and send metrics every flush seconds or limit records. 
 
 ```
 Usage of rancher-telemetry-stats:
@@ -30,6 +30,8 @@ Usage of rancher-telemetry-stats:
       Log files to analyze, wildcard allowed between quotes. (default "/var/log/nginx/access.log")
   -format string
       Output format. influx | json (default "influx")
+  -flush int
+      Send metrics to inflush every flush seconds. (default 60)
   -geoipdb string
       Geoip db file. (default "GeoLite2-City.mmdb")
   -influxdb string
@@ -43,7 +45,7 @@ Usage of rancher-telemetry-stats:
   -limit int
       Limit batch size (default 2000)
   -refresh int
-      Send metrics every refresh seconds. daemon mode (default 120)
+      Get metrics every refresh seconds. (default 3600)
   -secretKey string
       Rancher secret key. Or env TELEMETRY_SECRET_KEY (default "")
   -url string
