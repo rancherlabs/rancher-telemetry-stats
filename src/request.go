@@ -343,7 +343,7 @@ func (r *Requests) sendToInflux() {
 		connected := i.CheckConnect(r.Config.refresh)
 		defer i.Close()
 
-		ticker := time.NewTicker(time.Second * time.Duration(r.Config.refresh))
+		ticker := time.NewTicker(time.Second * time.Duration(r.Config.flush))
 
 		index = 0
 		for {
@@ -358,9 +358,7 @@ func (r *Requests) sendToInflux() {
 	    			} else {
 	    				return
 	    			}
-	    		} else {
-	    			log.Info("Tick: Nothing to send")
-	    		}
+	    		} 
 	        case p := <- r.Output:
 	        	if p != nil {
 	        		points = append(points, *p)
