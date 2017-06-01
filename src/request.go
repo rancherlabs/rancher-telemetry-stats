@@ -47,7 +47,10 @@ func getJSON(url string, accessKey string, secretKey string, target interface{})
 
 type reqLocation struct {
 	City          	string `json:"city"`
-	Country        	string `json:"country"`
+	Country        	struct {
+    	Name 		string 
+       	ISOCode 	string 
+    } `json:"country"`
 } 
 
 type RequestData struct {
@@ -124,7 +127,8 @@ func (r *Request) getPoint() *influx.Point {
 		"install_image": r.Data.install["image"],
 		"install_version": r.Data.install["version"],
         "city": r.Location.City,
-        "country": r.Location.Country,
+        "country": r.Location.Country.Name,
+        "country_isocode": r.Location.Country.ISOCode,
     }
 
 	m, err := influx.NewPoint(n,t,v,r.Data.ts)
@@ -175,7 +179,9 @@ func (r *Request) getLocation(geoipdb string) {
     }
     
     r.Location.City = record.City.Names["en"] 
-    r.Location.Country = record.Country.Names["en"]
+    r.Location.Country.Name = record.Country.Names["en"]
+    r.Location.Country.ISOCode = record.Country.ISOCode
+
 }
 
 func (r *Request) getData(geoipdb string) bool{
@@ -403,7 +409,7 @@ func (r *Requests) closeReaders() {
 	r.Readers = nil
 }
 
-func (r *Requests) getDataByFiles() {
+func (r *Requests) getDataByUrl() {
 	var in, out sync.WaitGroup
 	indone := make(chan struct{},1)
 	outdone := make(chan struct{},1)

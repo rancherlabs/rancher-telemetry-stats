@@ -6,13 +6,13 @@
   "gnetId": null,
   "graphTooltip": 0,
   "hideControls": false,
-  "id": 3,
+  "id": 2,
   "links": [],
-  "refresh": "1m",
+  "refresh": "1h",
   "rows": [
     {
       "collapse": false,
-      "height": 183,
+      "height": 182,
       "panels": [
         {
           "cacheTimeout": null,
@@ -61,21 +61,37 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
-              "groupBy": [],
+              "groupBy": [
+                {
+                  "params": [
+                    "$interval"
+                  ],
+                  "type": "time"
+                }
+              ],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "hosts_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"active\" FROM \"projects\" WHERE  \"id\" = '' AND \"orchestration\" = '' AND $timeFilter",
+              "query": "SELECT sum(\"cpu\") FROM hosts_1h WHERE $timeFilter ",
               "rawQuery": false,
               "refId": "A",
               "resultFormat": "time_series",
@@ -83,7 +99,7 @@
                 [
                   {
                     "params": [
-                      "host_cpu_cores_total"
+                      "cpu"
                     ],
                     "type": "field"
                   },
@@ -129,7 +145,7 @@
             "thresholdMarkers": true
           },
           "id": 30,
-          "interval": null,
+          "interval": "",
           "links": [],
           "mappingType": 1,
           "mappingTypes": [
@@ -156,29 +172,38 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "hosts_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(last(\"host_mem_mb_total\")) FROM /^$sourcedb$/ WHERE $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"memory\") FROM hosts_$agg_time WHERE $timeFilter  GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "host_mem_mb_total"
+                      "memory"
                     ],
                     "type": "field"
                   },
@@ -251,29 +276,38 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "containers_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"hashost\" FROM \"projects\" WHERE \"id\" = '' AND \"orchestration\" = '' AND $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"running\") FROM containers_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "container_running"
+                      "running"
                     ],
                     "type": "field"
                   },
@@ -346,29 +380,38 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "containers_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"containers\" FROM \"projects\" WHERE \"id\" = '' AND \"orchestration\" = '' AND $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"total\") FROM containers_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "container_total"
+                      "total"
                     ],
                     "type": "field"
                   },
@@ -414,7 +457,7 @@
             "thresholdMarkers": true
           },
           "id": 10,
-          "interval": null,
+          "interval": ">24h",
           "links": [],
           "mappingType": 1,
           "mappingTypes": [
@@ -441,29 +484,38 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "hosts_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"hosts\" FROM \"projects\" WHERE \"id\" = '' AND \"orchestration\" = '' AND $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"host\") FROM hosts_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "host_active"
+                      "host"
                     ],
                     "type": "field"
                   },
@@ -508,7 +560,7 @@
             "thresholdMarkers": true
           },
           "id": 21,
-          "interval": null,
+          "interval": "",
           "links": [],
           "mappingType": 1,
           "mappingTypes": [
@@ -535,21 +587,30 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "installations_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT count(distinct(\"uid\")) FROM /^$sourcedb$/ WHERE $timeFilter",
+              "query": "SELECT sum(\"total\") FROM installations_$agg_time WHERE $timeFilter GROUP BY time($interval)",
               "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
@@ -557,13 +618,9 @@
                 [
                   {
                     "params": [
-                      "uid"
+                      "total"
                     ],
                     "type": "field"
-                  },
-                  {
-                    "params": [],
-                    "type": "count"
                   }
                 ]
               ],
@@ -581,7 +638,7 @@
               "value": "null"
             }
           ],
-          "valueName": "current"
+          "valueName": "avg"
         },
         {
           "cacheTimeout": null,
@@ -629,29 +686,50 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "orchestrators_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"environment_total\") FROM /^$sourcedb$/ WHERE $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"cattle\") + sum(\"kubernetes\")  + sum(\"mesos\") + sum(\"swarm\") + sum(\"windows\") FROM orchestrators_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "environment_total"
+                      "cattle"
+                    ],
+                    "type": "field"
+                  },
+                  {
+                    "params": [],
+                    "type": "sum"
+                  }
+                ],
+                [
+                  {
+                    "params": [
+                      "kubernetes"
                     ],
                     "type": "field"
                   },
@@ -687,16 +765,17 @@
             "rgba(60, 171, 55, 0.97)"
           ],
           "datasource": "$sourcedb",
+          "decimals": null,
           "format": "short",
           "gauge": {
             "maxValue": 100,
             "minValue": 0,
-            "show": true,
+            "show": false,
             "thresholdLabels": false,
-            "thresholdMarkers": false
+            "thresholdMarkers": true
           },
           "id": 8,
-          "interval": null,
+          "interval": "",
           "links": [],
           "mappingType": 1,
           "mappingTypes": [
@@ -723,6 +802,13 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
@@ -730,22 +816,31 @@
             "lineColor": "rgb(31, 120, 193)",
             "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
-              "groupBy": [],
+              "groupBy": [
+                {
+                  "params": [
+                    "$interval"
+                  ],
+                  "type": "time"
+                }
+              ],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "orchestrators_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"usage\" FROM \"projects\" WHERE \"orchestration\" = 'cattle' AND $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"cattle\") as cattle FROM orchestrators_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "orch_cattle"
+                      "cattle"
                     ],
                     "type": "field"
                   },
@@ -758,7 +853,7 @@
               "tags": []
             }
           ],
-          "thresholds": "24,49",
+          "thresholds": "25,50",
           "title": "Cattle",
           "type": "singlestat",
           "valueFontSize": "80%",
@@ -786,9 +881,9 @@
           "gauge": {
             "maxValue": 100,
             "minValue": 0,
-            "show": true,
+            "show": false,
             "thresholdLabels": false,
-            "thresholdMarkers": false
+            "thresholdMarkers": true
           },
           "id": 14,
           "interval": null,
@@ -818,6 +913,13 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
@@ -825,22 +927,24 @@
             "lineColor": "rgb(31, 120, 193)",
             "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "orchestrators_12h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"usage\" FROM \"projects\" WHERE \"orchestration\" = 'kubernetes' AND $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"kubernetes\")  FROM orchestrators_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "orch_kubernetes"
+                      "kubernetes"
                     ],
                     "type": "field"
                   },
@@ -853,7 +957,7 @@
               "tags": []
             }
           ],
-          "thresholds": "24,49",
+          "thresholds": "25,50",
           "title": "Kubernetes",
           "type": "singlestat",
           "valueFontSize": "80%",
@@ -876,13 +980,14 @@
             "rgba(60, 171, 55, 0.97)"
           ],
           "datasource": "$sourcedb",
+          "decimals": null,
           "format": "short",
           "gauge": {
             "maxValue": 100,
             "minValue": 0,
-            "show": true,
+            "show": false,
             "thresholdLabels": false,
-            "thresholdMarkers": false
+            "thresholdMarkers": true
           },
           "id": 16,
           "interval": null,
@@ -912,6 +1017,13 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
@@ -919,22 +1031,24 @@
             "lineColor": "rgb(31, 120, 193)",
             "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "orchestrators_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"usage\" FROM \"projects\" WHERE \"orchestration\" = 'swarm' AND $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"swarm\")  FROM orchestrators_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "orch_swarm"
+                      "swarm"
                     ],
                     "type": "field"
                   },
@@ -947,7 +1061,7 @@
               "tags": []
             }
           ],
-          "thresholds": "24,49",
+          "thresholds": "25,50",
           "title": "Swarm",
           "type": "singlestat",
           "valueFontSize": "80%",
@@ -970,13 +1084,14 @@
             "rgba(60, 171, 55, 0.97)"
           ],
           "datasource": "$sourcedb",
+          "decimals": null,
           "format": "short",
           "gauge": {
             "maxValue": 100,
             "minValue": 0,
-            "show": true,
+            "show": false,
             "thresholdLabels": false,
-            "thresholdMarkers": false
+            "thresholdMarkers": true
           },
           "id": 15,
           "interval": null,
@@ -1006,6 +1121,13 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
@@ -1013,22 +1135,24 @@
             "lineColor": "rgb(31, 120, 193)",
             "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "orchestrators_12h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"usage\" FROM \"projects\" WHERE \"orchestration\" = 'mesos' AND $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"mesos\")  FROM orchestrators_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "orch_mesos"
+                      "mesos"
                     ],
                     "type": "field"
                   },
@@ -1041,7 +1165,7 @@
               "tags": []
             }
           ],
-          "thresholds": "24,49",
+          "thresholds": "25,50",
           "title": "Mesos",
           "type": "singlestat",
           "valueFontSize": "80%",
@@ -1064,13 +1188,14 @@
             "rgba(60, 171, 55, 0.97)"
           ],
           "datasource": "$sourcedb",
+          "decimals": null,
           "format": "short",
           "gauge": {
             "maxValue": 100,
             "minValue": 0,
-            "show": true,
+            "show": false,
             "thresholdLabels": false,
-            "thresholdMarkers": false
+            "thresholdMarkers": true
           },
           "id": 17,
           "interval": null,
@@ -1100,6 +1225,13 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
@@ -1107,22 +1239,24 @@
             "lineColor": "rgb(31, 120, 193)",
             "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "orchestrators_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"usage\" FROM \"projects\" WHERE \"orchestration\" = 'windows' AND $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"windows\") FROM orchestrators_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "orch_windows"
+                      "windows"
                     ],
                     "type": "field"
                   },
@@ -1194,29 +1328,38 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "stacks_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"environment_total\") FROM /^$sourcedb$/ WHERE $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"total\") FROM stacks_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "stack_total"
+                      "total"
                     ],
                     "type": "field"
                   },
@@ -1289,22 +1432,31 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
               "measurement": "/^$sourcedb$/",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"environment_total\") FROM /^$sourcedb$/ WHERE $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"active\") FROM stacks_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -1384,22 +1536,31 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
               "measurement": "/^$sourcedb$/",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"environment_total\") FROM /^$sourcedb$/ WHERE $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"total\") FROM services_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -1479,22 +1640,31 @@
               "to": "null"
             }
           ],
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
           "span": 2,
           "sparkline": {
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
+          "tableColumn": "",
           "targets": [
             {
               "dsType": "influxdb",
               "groupBy": [],
               "hide": false,
               "measurement": "/^$sourcedb$/",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"environment_total\") FROM /^$sourcedb$/ WHERE $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"active\") FROM services_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -1526,13 +1696,90 @@
             }
           ],
           "valueName": "current"
+        },
+        {
+          "aliasColors": {},
+          "cacheTimeout": null,
+          "combine": {
+            "label": "Others",
+            "threshold": 0
+          },
+          "datasource": "$sourcedb",
+          "fontSize": "80%",
+          "format": "percent",
+          "id": 36,
+          "interval": "",
+          "legend": {
+            "percentage": true,
+            "show": true,
+            "values": false
+          },
+          "legendType": "Right side",
+          "links": [],
+          "maxDataPoints": 3,
+          "nullPointMode": "connected",
+          "pieType": "pie",
+          "scopedVars": {
+            "agg_time": {
+              "selected": true,
+              "text": "1h",
+              "value": "1h"
+            }
+          },
+          "span": 4,
+          "strokeWidth": "1",
+          "targets": [
+            {
+              "alias": "$col",
+              "dsType": "influxdb",
+              "groupBy": [
+                {
+                  "params": [
+                    "$__interval"
+                  ],
+                  "type": "time"
+                },
+                {
+                  "params": [
+                    "null"
+                  ],
+                  "type": "fill"
+                }
+              ],
+              "hide": false,
+              "orderByTime": "ASC",
+              "policy": "default",
+              "query": "SELECT sum(\"cattle\") as cattle, sum(\"kubernetes\") as kubernetes, sum(\"mesos\") as mesos, sum(\"swarm\") as swarm, sum(\"windows\") as windows FROM orchestrators_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
+              "refId": "A",
+              "resultFormat": "time_series",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "field"
+                  },
+                  {
+                    "params": [],
+                    "type": "mean"
+                  }
+                ]
+              ],
+              "tags": []
+            }
+          ],
+          "title": "Orchestrators",
+          "type": "grafana-piechart-panel",
+          "valueName": "avg"
         }
       ],
-      "repeat": null,
+      "repeat": "agg_time",
       "repeatIteration": null,
       "repeatRowId": null,
       "showTitle": true,
-      "title": "Counters",
+      "title": "Counters by agg_time",
       "titleSize": "h6"
     },
     {
@@ -1542,6 +1789,8 @@
         {
           "aliasColors": {},
           "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 9,
@@ -1569,6 +1818,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -1585,17 +1835,18 @@
                 }
               ],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "installations_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT count(distinct(\"uid\")) FROM /^$sourcedb$/ WHERE $timeFilter",
-              "rawQuery": false,
+              "query": "SELECT sum(\"total\") FROM installations_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "uid"
+                      "total"
                     ],
                     "type": "field"
                   },
@@ -1619,6 +1870,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -1647,7 +1899,9 @@
         },
         {
           "aliasColors": {},
-          "bars": true,
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 29,
@@ -1660,7 +1914,7 @@
             "total": false,
             "values": false
           },
-          "lines": false,
+          "lines": true,
           "linewidth": 1,
           "links": [],
           "nullPointMode": "connected",
@@ -1669,6 +1923,7 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -1692,9 +1947,10 @@
               ],
               "hide": false,
               "measurement": "/^$sourcedb$/",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT count(distinct(\"uid\")) FROM /^$sourcedb$/ WHERE $timeFilter GROUP BY time($interval), \"country\"",
-              "rawQuery": false,
+              "query": "SELECT sum(\"total\") FROM by_country_$agg_time WHERE $timeFilter GROUP BY time($interval), \"country\"",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
@@ -1725,9 +1981,10 @@
           },
           "type": "graph",
           "xaxis": {
-            "mode": "series",
+            "buckets": null,
+            "mode": "time",
             "name": null,
-            "show": false,
+            "show": true,
             "values": [
               "total"
             ]
@@ -1754,9 +2011,12 @@
         {
           "aliasColors": {},
           "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 20,
+          "interval": "",
           "legend": {
             "avg": false,
             "current": false,
@@ -1769,12 +2029,13 @@
           "lines": true,
           "linewidth": 1,
           "links": [],
-          "nullPointMode": "null",
+          "nullPointMode": "connected",
           "percentage": false,
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -1790,17 +2051,19 @@
                   "type": "time"
                 }
               ],
-              "measurement": "/^$sourcedb$/",
+              "hide": false,
+              "measurement": "orchestrators_4h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"service_total\") AS \"Total\", sum(\"service_active\") AS \"Active\" FROM /^$sourcedb$/ WHERE $timeFilter GROUP BY time($interval)",
-              "rawQuery": false,
+              "query": "SELECT sum(\"kubernetes\") AS \"kubernetes\", sum(\"mesos\") AS \"mesos\", sum(\"swarm\") AS \"swarm\", sum(\"windows\") AS \"windows\", sum(\"cattle\") AS \"cattle\" FROM orchestrators_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "orch_kubernetes"
+                      "kubernetes"
                     ],
                     "type": "field"
                   },
@@ -1818,7 +2081,7 @@
                 [
                   {
                     "params": [
-                      "orch_mesos"
+                      "mesos"
                     ],
                     "type": "field"
                   },
@@ -1836,7 +2099,7 @@
                 [
                   {
                     "params": [
-                      "orch_swarm"
+                      "swarm"
                     ],
                     "type": "field"
                   },
@@ -1854,7 +2117,7 @@
                 [
                   {
                     "params": [
-                      "orch_windows"
+                      "windows"
                     ],
                     "type": "field"
                   },
@@ -1872,7 +2135,7 @@
                 [
                   {
                     "params": [
-                      "orch_cattle"
+                      "cattle"
                     ],
                     "type": "field"
                   },
@@ -1902,6 +2165,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -1929,9 +2193,12 @@
         {
           "aliasColors": {},
           "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 26,
+          "interval": "",
           "legend": {
             "avg": false,
             "current": false,
@@ -1944,12 +2211,13 @@
           "lines": true,
           "linewidth": 1,
           "links": [],
-          "nullPointMode": "null",
+          "nullPointMode": "connected",
           "percentage": false,
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -1965,17 +2233,19 @@
                   "type": "time"
                 }
               ],
-              "measurement": "/^$sourcedb$/",
+              "hide": false,
+              "measurement": "containers_1h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"containers\" FROM \"projects\" WHERE \"id\" = ''AND \"orchestration\" != '' AND $timeFilter GROUP BY \"orchestration\"",
-              "rawQuery": false,
+              "query": "SELECT sum(\"total\") AS \"Total\", sum(\"running\") AS \"Running\" FROM containers_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "container_total"
+                      "total"
                     ],
                     "type": "field"
                   },
@@ -1993,7 +2263,7 @@
                 [
                   {
                     "params": [
-                      "container_running"
+                      "running"
                     ],
                     "type": "field"
                   },
@@ -2023,6 +2293,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -2050,9 +2321,12 @@
         {
           "aliasColors": {},
           "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 27,
+          "interval": "",
           "legend": {
             "avg": false,
             "current": false,
@@ -2065,12 +2339,13 @@
           "lines": true,
           "linewidth": 1,
           "links": [],
-          "nullPointMode": "null",
+          "nullPointMode": "connected",
           "percentage": false,
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -2086,9 +2361,11 @@
                   "type": "time"
                 }
               ],
-              "measurement": "/^$sourcedb$/",
+              "hide": false,
+              "measurement": "services_4h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"service_total\") AS \"Total\", sum(\"service_active\") AS \"Active\" FROM /^$sourcedb$/ WHERE $timeFilter GROUP BY time($interval)",
+              "query": "SELECT sum(\"total\") AS \"Total\", sum(\"active\") AS \"Active\" FROM services_$agg_time WHERE $timeFilter GROUP BY time($interval)",
               "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
@@ -2096,7 +2373,7 @@
                 [
                   {
                     "params": [
-                      "service_total"
+                      "total"
                     ],
                     "type": "field"
                   },
@@ -2114,7 +2391,7 @@
                 [
                   {
                     "params": [
-                      "service_active"
+                      "active"
                     ],
                     "type": "field"
                   },
@@ -2144,6 +2421,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -2171,9 +2449,12 @@
         {
           "aliasColors": {},
           "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 28,
+          "interval": "",
           "legend": {
             "avg": false,
             "current": false,
@@ -2186,12 +2467,13 @@
           "lines": true,
           "linewidth": 1,
           "links": [],
-          "nullPointMode": "null",
+          "nullPointMode": "connected",
           "percentage": false,
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -2207,9 +2489,11 @@
                   "type": "time"
                 }
               ],
-              "measurement": "/^$sourcedb$/",
+              "hide": false,
+              "measurement": "stacks_4h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"stack_total\") AS \"Total\", sum(\"stack_active\") AS \"Active\" FROM /^$sourcedb$/ WHERE $timeFilter GROUP BY time($interval)",
+              "query": "SELECT sum(\"total\") AS \"Total\", sum(\"active\") AS \"Active\" FROM stacks_$agg_time WHERE $timeFilter GROUP BY time($interval)",
               "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
@@ -2217,7 +2501,7 @@
                 [
                   {
                     "params": [
-                      "service_total"
+                      "total"
                     ],
                     "type": "field"
                   },
@@ -2235,7 +2519,7 @@
                 [
                   {
                     "params": [
-                      "service_active"
+                      "active"
                     ],
                     "type": "field"
                   },
@@ -2265,6 +2549,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -2292,9 +2577,12 @@
         {
           "aliasColors": {},
           "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 31,
+          "interval": "",
           "legend": {
             "avg": false,
             "current": false,
@@ -2307,12 +2595,13 @@
           "lines": true,
           "linewidth": 1,
           "links": [],
-          "nullPointMode": "null",
+          "nullPointMode": "connected",
           "percentage": false,
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -2329,17 +2618,18 @@
                 }
               ],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "hosts_4h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"hosts\" FROM \"projects\" WHERE \"id\" = ''AND \"orchestration\" != '' AND $timeFilter GROUP BY \"orchestration\"",
-              "rawQuery": false,
+              "query": "SELECT last(\"host\") AS \"Active\", last(\"cpu\") AS \"CPU\" FROM hosts_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "host_active"
+                      "host"
                     ],
                     "type": "field"
                   },
@@ -2357,7 +2647,7 @@
                 [
                   {
                     "params": [
-                      "host_cpu_cores_total"
+                      "cpu"
                     ],
                     "type": "field"
                   },
@@ -2387,6 +2677,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -2414,9 +2705,12 @@
         {
           "aliasColors": {},
           "bars": false,
+          "dashLength": 10,
+          "dashes": false,
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 25,
+          "interval": "",
           "legend": {
             "avg": false,
             "current": false,
@@ -2429,12 +2723,13 @@
           "lines": true,
           "linewidth": 1,
           "links": [],
-          "nullPointMode": "null",
+          "nullPointMode": "connected",
           "percentage": false,
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "span": 6,
           "stack": false,
           "steppedLine": false,
@@ -2451,23 +2746,24 @@
                 }
               ],
               "hide": false,
-              "measurement": "/^$sourcedb$/",
+              "measurement": "hosts_4h",
+              "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT \"hosts\" FROM \"projects\" WHERE \"id\" = ''AND \"orchestration\" != '' AND $timeFilter GROUP BY \"orchestration\"",
-              "rawQuery": false,
+              "query": "SELECT sum(\"memory\") AS \"Mem\" FROM hosts_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
               "select": [
                 [
                   {
                     "params": [
-                      "host_mem_mb_total"
+                      "memory"
                     ],
                     "type": "field"
                   },
                   {
                     "params": [],
-                    "type": "last"
+                    "type": "sum"
                   },
                   {
                     "params": [
@@ -2491,6 +2787,7 @@
           },
           "type": "graph",
           "xaxis": {
+            "buckets": null,
             "mode": "time",
             "name": null,
             "show": true,
@@ -2520,7 +2817,7 @@
       "repeatIteration": null,
       "repeatRowId": null,
       "showTitle": true,
-      "title": "Instant data",
+      "title": "Instant data by agg_time",
       "titleSize": "h6"
     }
   ],
@@ -2542,12 +2839,49 @@
         "refresh": 1,
         "regex": "",
         "type": "datasource"
+      },
+      {
+        "auto": false,
+        "auto_count": 30,
+        "auto_min": "10s",
+        "current": {
+          "text": "1h",
+          "value": "1h"
+        },
+        "hide": 0,
+        "label": null,
+        "name": "agg_time",
+        "options": [
+          {
+            "selected": true,
+            "text": "1h",
+            "value": "1h"
+          },
+          {
+            "selected": false,
+            "text": "4h",
+            "value": "4h"
+          },
+          {
+            "selected": false,
+            "text": "12h",
+            "value": "12h"
+          },
+          {
+            "selected": false,
+            "text": "24h",
+            "value": "24h"
+          }
+        ],
+        "query": "1h,4h,12h,24h",
+        "refresh": 2,
+        "type": "interval"
       }
     ]
   },
   "time": {
-    "from": "now-6h",
-    "to": "now"
+    "from": "now-1d/d",
+    "to": "now-1d/d"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -2576,5 +2910,5 @@
   },
   "timezone": "browser",
   "title": "telemetry.rancher.io",
-  "version": 6
+  "version": 28
 }

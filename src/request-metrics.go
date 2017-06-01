@@ -9,6 +9,6 @@ func main(){
 	params.init()
 
 	req := newRequests(params)
-	req.getDataByFiles()
+	req.getDataByUrl()
 
 }

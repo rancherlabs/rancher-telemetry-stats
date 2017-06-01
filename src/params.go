@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"flag"
-	"path/filepath"
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -24,14 +23,11 @@ type Params struct {
 	geoipdb string
 	format string
 	limit int
-	files []string
 	refresh int
 	flush int
 }
 
 func (p *Params) init() {
-	var file_path string
-	var err error
 
 	flag.StringVar(&p.url, "url", "http://telemetry.rancher.io", "Rancher telemetry url.")
 	flag.StringVar(&p.accessKey, "accessKey", os.Getenv("TELEMETRY_ACCESS_KEY"), "Rancher access key. Or env TELEMETRY_ACCESS_KEY")
@@ -41,18 +37,12 @@ func (p *Params) init() {
 	flag.StringVar(&p.influxdb, "influxdb", "telemetry", "Influx db name")
 	flag.StringVar(&p.influxuser, "influxuser", "", "Influx username")
 	flag.StringVar(&p.influxpass, "influxpass", "", "Influx password")
-	flag.StringVar(&file_path, "filepath", "/var/log/nginx/access.log", "Log files to analyze, wildcard allowed between quotes.")
 	flag.StringVar(&p.geoipdb, "geoipdb", "GeoLite2-City.mmdb", "Geoip db file.")
 	flag.IntVar(&p.limit, "limit", 2000, "Limit batch size")
 	flag.IntVar(&p.refresh, "refresh", 3600, "Get metrics every refresh seconds.")
 	flag.IntVar(&p.flush, "flush", 60, "Send metrics to inflush every flush seconds.")
 
 	flag.Parse()
-
-	p.files , err = filepath.Glob(file_path)
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	p.checkParams()
 }
