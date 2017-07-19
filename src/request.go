@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	//"regexp"
-	//"strings"
+	"bytes"
+	"strings"
+	"io/ioutil"
 	"time"
 	"encoding/json"
 	"os"
@@ -72,6 +74,38 @@ type Request struct {
 	Record    interface{} `json:"record"`
 	Data 	  *RequestData
 	Location  reqLocation `json:"location"`	
+	Status 	  string 	  `json:"status"`
+}
+
+func newrequestByString(line, sep string) (*Request) {
+	var err error
+
+	s := strings.Split(line, sep)
+	if len(s) == 6 {
+		req := &Request{}
+
+		req.Id, err = strconv.ParseInt(s[0], 10, 64)
+		if err != nil {
+			log.Info("Error parsing Id ", s[0], err)
+		}
+		req.Uid = s[1]
+		req.FirstSeen , err = time.Parse("2006-01-02 15:04:05.999999", s[2])
+		if err != nil {
+			log.Info("Error parsing Firstseen ", s[2], err)
+		}
+		req.LastSeen , err = time.Parse("2006-01-02 15:04:05.999999", s[3])
+		if err != nil {
+			log.Info("Error parsing Lastseen ", s[3], err)
+		}
+		req.LastIp = s[4]
+		err = json.Unmarshal([]byte(s[5]), &req.Record)
+		if err != nil {
+			log.Info("Error unmarshaling Record ", s[5], err)
+		}
+
+		return req
+	}
+	return nil
 }
 
 func (r *Request) initData() bool {
@@ -122,13 +156,13 @@ func (r *Request) getPoint() *influx.Point {
     t := map[string]string{
     	"id":  strconv.FormatInt(r.Id, 10),
         "uid": r.Uid,
-        "firstseen": r.FirstSeen.String(),
-		"lastseen": r.LastSeen.String(),
+        "ip": r.LastIp,
 		"install_image": r.Data.install["image"],
 		"install_version": r.Data.install["version"],
         "city": r.Location.City,
         "country": r.Location.Country.Name,
         "country_isocode": r.Location.Country.ISOCode,
+        "status": r.Status,
     }
 
 	m, err := influx.NewPoint(n,t,v,r.Data.ts)
@@ -182,6 +216,16 @@ func (r *Request) getLocation(geoipdb string) {
     r.Location.Country.Name = record.Country.Names["en"]
     r.Location.Country.ISOCode = record.Country.ISOCode
 
+}
+
+func (r *Request) isNew() string{
+	diff := r.LastSeen.Sub(r.FirstSeen)
+
+	if diff.Hours() > 24 {
+		return "active"
+	} else {
+		return "new"
+	} 
 }
 
 func (r *Request) getData(geoipdb string) bool{
@@ -296,6 +340,8 @@ func (r *Request) getData(geoipdb string) bool{
      			return false
 			} 
 			r.Data.ts = r.LastSeen
+
+			r.Status = r.isNew()
 
 			return true
 		}
@@ -417,7 +463,11 @@ func (r *Requests) getDataByUrl() {
 	in.Add(1)
 	go func() {
 		defer in.Done()
-		r.getDataByChan(r.addReader())
+		if r.Config.file != "" {
+			r.getDataByFile()
+		} else {
+			r.getDataByChan(r.addReader())
+		}
 	}()
 
 	out.Add(1)
@@ -473,6 +523,38 @@ func (r *Requests) getDataByChan(stop chan struct{}) {
         case <- stop:
             return
         }
+    }
+}
+
+func (r *Requests) getDataByFile() {
+	log.Info("Reading file ", r.Config.file)
+	dat, err := ioutil.ReadFile(r.Config.file)
+
+	if err != nil {
+		log.Error("Error reading file ", r.Config.file , err)
+	}
+
+	lines := bytes.Split(dat, []byte("\n"))
+
+	for _ , line := range lines {
+		if line != nil {
+			req := newrequestByString(string(line), "|")
+			if req != nil {
+				r.Data = append(r.Data, *req)
+			}
+		}
+	}
+
+	for _ , req := range r.Data {
+		aux := Request{}
+		aux = req
+		if aux.getData(r.Config.geoipdb) {
+			if r.Config.format == "json" {
+				r.Input <- &aux
+			} else {
+				r.Output <- aux.getPoint()
+			}
+		}
     }
 }
 

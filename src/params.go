@@ -21,6 +21,7 @@ type Params struct {
 	influxuser string
 	influxpass string
 	geoipdb string
+	file string
 	format string
 	limit int
 	refresh int
@@ -38,6 +39,7 @@ func (p *Params) init() {
 	flag.StringVar(&p.influxuser, "influxuser", "", "Influx username")
 	flag.StringVar(&p.influxpass, "influxpass", "", "Influx password")
 	flag.StringVar(&p.geoipdb, "geoipdb", "GeoLite2-City.mmdb", "Geoip db file.")
+	flag.StringVar(&p.file, "file", "", "Read requests from file.")
 	flag.IntVar(&p.limit, "limit", 2000, "Limit batch size")
 	flag.IntVar(&p.refresh, "refresh", 3600, "Get metrics every refresh seconds.")
 	flag.IntVar(&p.flush, "flush", 60, "Send metrics to inflush every flush seconds.")

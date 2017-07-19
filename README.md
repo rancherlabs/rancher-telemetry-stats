@@ -13,7 +13,7 @@ docker build -t rawmind/rancher-telemetry-stats:<version> .
 
 ## Versions
 
-- `0.1-2` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.1-2/Dockerfile)
+- `0.1-3` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.1-3/Dockerfile)
 
 
 ## Usage
@@ -53,6 +53,16 @@ Usage of rancher-telemetry-stats:
 NOTE: You need influx already installed and running. The influx db would be created if doesn't exist.
 
 ## Metrics
+
+SELECT id, uid, ts, data FROM record WHERE date_trunc('day',ts) >= (date_trunc('day',now()) - INTERVAL '2 day') ORDER BY id DESC
+
+SELECT r.id, r.uid, r.ts, r.data, i.last_seen, i.last_ip FROM record r JOIN installation i ON (i.last_record = r.id) WHERE date_trunc('day',ts) >= (date_trunc('day',now()) - INTERVAL '7 day') ORDER BY id DESC
+
+SELECT i.id, i.uid, i.first_seen, r.ts, i.last_ip, r.data FROM installation i JOIN record r ON (i.uid = r.uid) WHERE date_trunc('day',ts) >= (date_trunc('day',now()) - INTERVAL '7 day') ORDER BY id DESC
+
+select count(r.uid) FROM installation i JOIN record r ON (i.uid = r.uid) WHERE date_trunc('day',ts) >= (date_trunc('day',now()) - INTERVAL '7 day') ORDER BY id DESC
+
+WHERE i.last_seen >= NOW() - INTERVAL '7 days'
 
 Metrics are on the form.....
 

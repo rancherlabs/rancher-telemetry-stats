@@ -8,11 +8,98 @@
   "hideControls": false,
   "id": 2,
   "links": [],
-  "refresh": "1h",
+  "refresh": false,
   "rows": [
     {
-      "collapse": false,
-      "height": 182,
+      "collapse": true,
+      "height": 545,
+      "panels": [
+        {
+          "circleMaxSize": 30,
+          "circleMinSize": 2,
+          "colors": [
+            "rgba(245, 54, 54, 0.9)",
+            "rgba(237, 129, 40, 0.89)",
+            "rgba(50, 172, 45, 0.97)"
+          ],
+          "datasource": "$sourcedb",
+          "decimals": 0,
+          "esMetric": "Count",
+          "hideEmpty": false,
+          "hideZero": false,
+          "id": 37,
+          "initialZoom": 1,
+          "interval": "$agg_time",
+          "links": [],
+          "locationData": "countries",
+          "mapCenter": "(0°, 0°)",
+          "mapCenterLatitude": 0,
+          "mapCenterLongitude": 0,
+          "maxDataPoints": 1,
+          "showLegend": true,
+          "span": 12,
+          "stickyLabels": true,
+          "targets": [
+            {
+              "alias": "$tag_country_isocode",
+              "dsType": "influxdb",
+              "groupBy": [
+                {
+                  "params": [
+                    "$__interval"
+                  ],
+                  "type": "time"
+                },
+                {
+                  "params": [
+                    "country_isocode"
+                  ],
+                  "type": "tag"
+                }
+              ],
+              "hide": false,
+              "measurement": "by_country_1h",
+              "orderByTime": "ASC",
+              "policy": "default",
+              "query": "SELECT count(distinct(\"uid\")) FROM by_country_$agg_time WHERE $timeFilter GROUP BY time($interval), \"country_isocode\"",
+              "rawQuery": true,
+              "refId": "A",
+              "resultFormat": "time_series",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "total"
+                    ],
+                    "type": "field"
+                  },
+                  {
+                    "params": [],
+                    "type": "sum"
+                  }
+                ]
+              ],
+              "tags": []
+            }
+          ],
+          "thresholds": "25,50",
+          "title": "Daily installations by country",
+          "type": "grafana-worldmap-panel",
+          "unitPlural": "",
+          "unitSingle": "",
+          "valueName": "total"
+        }
+      ],
+      "repeat": null,
+      "repeatIteration": null,
+      "repeatRowId": null,
+      "showTitle": true,
+      "title": "World map",
+      "titleSize": "h6"
+    },
+    {
+      "collapse": true,
+      "height": 167,
       "panels": [
         {
           "cacheTimeout": null,
@@ -64,8 +151,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -175,8 +262,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -279,8 +366,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -383,8 +470,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -457,7 +544,7 @@
             "thresholdMarkers": true
           },
           "id": 10,
-          "interval": ">24h",
+          "interval": "",
           "links": [],
           "mappingType": 1,
           "mappingTypes": [
@@ -487,8 +574,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -560,7 +647,7 @@
             "thresholdMarkers": true
           },
           "id": 21,
-          "interval": "",
+          "interval": "$agg_time",
           "links": [],
           "mappingType": 1,
           "mappingTypes": [
@@ -590,8 +677,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -610,7 +697,7 @@
               "measurement": "installations_1h",
               "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"total\") FROM installations_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "query": "SELECT count(distinct(\"uid\")) FROM byUid_$agg_time WHERE $timeFilter GROUP BY time($interval)",
               "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
@@ -689,8 +776,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -805,8 +892,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -916,8 +1003,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -1020,8 +1107,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -1124,8 +1211,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -1228,8 +1315,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -1331,8 +1418,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -1435,8 +1522,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -1539,8 +1626,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -1643,8 +1730,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 2,
@@ -1722,8 +1809,8 @@
           "scopedVars": {
             "agg_time": {
               "selected": true,
-              "text": "1h",
-              "value": "1h"
+              "text": "24h",
+              "value": "24h"
             }
           },
           "span": 4,
@@ -1794,7 +1881,7 @@
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 9,
-          "interval": "",
+          "interval": "$agg_time",
           "legend": {
             "alignAsTable": false,
             "avg": false,
@@ -1820,11 +1907,11 @@
           "seriesOverrides": [],
           "spaceLength": 10,
           "span": 6,
-          "stack": false,
+          "stack": true,
           "steppedLine": false,
           "targets": [
             {
-              "alias": "$col",
+              "alias": "$tag_status",
               "dsType": "influxdb",
               "groupBy": [
                 {
@@ -1838,7 +1925,7 @@
               "measurement": "installations_1h",
               "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"total\") FROM installations_$agg_time WHERE $timeFilter GROUP BY time($interval)",
+              "query": "SELECT count(distinct(\"uid\")) as total FROM byUid_$agg_time WHERE $timeFilter GROUP BY time($interval),status",
               "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
@@ -1905,6 +1992,7 @@
           "datasource": "$sourcedb",
           "fill": 1,
           "id": 29,
+          "interval": "$agg_time",
           "legend": {
             "avg": false,
             "current": false,
@@ -1949,7 +2037,7 @@
               "measurement": "/^$sourcedb$/",
               "orderByTime": "ASC",
               "policy": "default",
-              "query": "SELECT sum(\"total\") FROM by_country_$agg_time WHERE $timeFilter GROUP BY time($interval), \"country\"",
+              "query": "SELECT count(distinct(\"uid\")) FROM by_country_$agg_time WHERE $timeFilter GROUP BY time($interval), \"country\"",
               "rawQuery": true,
               "refId": "A",
               "resultFormat": "time_series",
@@ -2828,6 +2916,7 @@
     "list": [
       {
         "current": {
+          "selected": true,
           "text": "telemetry",
           "value": "telemetry"
         },
@@ -2845,8 +2934,8 @@
         "auto_count": 30,
         "auto_min": "10s",
         "current": {
-          "text": "1h",
-          "value": "1h"
+          "text": "24h",
+          "value": "24h"
         },
         "hide": 0,
         "label": null,
@@ -2854,34 +2943,19 @@
         "options": [
           {
             "selected": true,
-            "text": "1h",
-            "value": "1h"
-          },
-          {
-            "selected": false,
-            "text": "4h",
-            "value": "4h"
-          },
-          {
-            "selected": false,
-            "text": "12h",
-            "value": "12h"
-          },
-          {
-            "selected": false,
             "text": "24h",
             "value": "24h"
           }
         ],
-        "query": "1h,4h,12h,24h",
+        "query": "24h",
         "refresh": 2,
         "type": "interval"
       }
     ]
   },
   "time": {
-    "from": "now-1d/d",
-    "to": "now-1d/d"
+    "from": "2017-01-01T15:15:16.992Z",
+    "to": "2017-07-19T14:15:16.992Z"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -2910,5 +2984,5 @@
   },
   "timezone": "browser",
   "title": "telemetry.rancher.io",
-  "version": 28
+  "version": 35
 }
