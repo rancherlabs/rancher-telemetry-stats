@@ -4,19 +4,20 @@ import (
 	"fmt"
 	//"regexp"
 	"bytes"
-	"strings"
-	"io/ioutil"
-	"time"
 	"encoding/json"
-	"os"
-	"net/http"
-	"strconv"
-	"os/signal"
-	"sync"
-	"net"
 	log "github.com/Sirupsen/logrus"
 	influx "github.com/influxdata/influxdb/client/v2"
 	"github.com/oschwald/maxminddb-golang"
+	"github.com/urfave/cli"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 func getJSON(url string, accessKey string, secretKey string, target interface{}) error {
@@ -38,7 +39,7 @@ func getJSON(url string, accessKey string, secretKey string, target interface{})
 	respFormatted := json.NewDecoder(resp.Body).Decode(target)
 
 	// Timings recorded as part of internal metrics
- 	log.Info("Time to get json: ", float64((time.Since(start))/ time.Millisecond), " ms")
+	log.Info("Time to get json: ", float64((time.Since(start))/time.Millisecond), " ms")
 
 	// Close the response body, the underlying Transport should then close the connection.
 	resp.Body.Close()
@@ -48,52 +49,39 @@ func getJSON(url string, accessKey string, secretKey string, target interface{})
 }
 
 type reqLocation struct {
-	City          	string `json:"city"`
-	Country        	struct {
-    	Name 		string 
-       	ISOCode 	string 
-    } `json:"country"`
-} 
-
-type RequestData struct {
-	container map[string]float64 `json:"container"`
-	environment map[string]float64 `json:"environment"`
-    host map[string]float64 `json:"host"`
-    install map[string]string `json:"install"`
-    service map[string]float64 `json:"service"`
-    stack map[string]float64 `json:"stack"`
-    ts time.Time
+	City    string `json:"city"`
+	Country struct {
+		Name    string
+		ISOCode string
+	} `json:"country"`
 }
 
 type Request struct {
-	Id        int64       `json:"id"`
-	Uid       string      `json:"uid"`
-	FirstSeen time.Time   `json:"first_seen"`
-	LastSeen  time.Time   `json:"last_seen"`
-	LastIp    string      `json:"last_ip"`
-	Record    interface{} `json:"record"`
-	Data 	  *RequestData
-	Location  reqLocation `json:"location"`	
-	Status 	  string 	  `json:"status"`
+	Id        string                 `json:"id"`
+	Uid       string                 `json:"uid"`
+	FirstSeen time.Time              `json:"first_seen"`
+	LastSeen  time.Time              `json:"last_seen"`
+	LastIp    string                 `json:"last_ip"`
+	RecordVer string                 `json:"record_version"`
+	Record    map[string]interface{} `json:"record"`
+	Location  reqLocation            `json:"location"`
+	Status    string                 `json:"status"`
 }
 
-func newrequestByString(line, sep string) (*Request) {
+func newrequestByString(line, sep string) *Request {
 	var err error
 
 	s := strings.Split(line, sep)
 	if len(s) == 6 {
 		req := &Request{}
 
-		req.Id, err = strconv.ParseInt(s[0], 10, 64)
-		if err != nil {
-			log.Info("Error parsing Id ", s[0], err)
-		}
+		req.Id = s[0]
 		req.Uid = s[1]
-		req.FirstSeen , err = time.Parse("2006-01-02 15:04:05.999999", s[2])
+		req.FirstSeen, err = time.Parse("2006-01-02 15:04:05.999999", s[2])
 		if err != nil {
 			log.Info("Error parsing Firstseen ", s[2], err)
 		}
-		req.LastSeen , err = time.Parse("2006-01-02 15:04:05.999999", s[3])
+		req.LastSeen, err = time.Parse("2006-01-02 15:04:05.999999", s[3])
 		if err != nil {
 			log.Info("Error parsing Lastseen ", s[3], err)
 		}
@@ -108,22 +96,30 @@ func newrequestByString(line, sep string) (*Request) {
 	return nil
 }
 
-func (r *Request) initData() bool {
-
-	if len(r.Uid) > 2 { 
-		r.Data = &RequestData{}
-
-		r.Data.container = make(map[string]float64)
-		r.Data.environment = make(map[string]float64)
-	    r.Data.host = make(map[string]float64)
-	    r.Data.install = make(map[string]string)
-	    r.Data.service = make(map[string]float64)
-	    r.Data.stack = make(map[string]float64)
-
-	    return true
-	} else {
+func (r *Request) checkData() bool {
+	if len(r.Uid) < 3 || r.Record == nil {
 		return false
 	}
+
+	r.RecordVer = strconv.FormatFloat(r.Record["r"].(float64), 'f', 0, 64)
+
+	var record_key []string
+
+	if r.RecordVer == "1" {
+		record_key = []string{"container", "environment", "host", "service", "stack", "install"}
+	}
+
+	if r.RecordVer == "2" {
+		record_key = []string{"cluster", "node", "project", "install"}
+	}
+
+	for _, key := range record_key {
+		if r.Record[key] == nil {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Produce wire-formatted string for ingestion into influxdb
@@ -134,44 +130,86 @@ func (r *Request) printInflux() {
 
 func (r *Request) getPoint() *influx.Point {
 	var n = "telemetry"
-    v := map[string]interface{}{
-        "ip": r.LastIp,
-        "uid": r.Uid,
-        "container_running": r.Data.container["running"],
-        "container_total": r.Data.container["total"],
-        "environment_total": r.Data.environment["total"],
-        "orch_cattle": r.Data.environment["cattle"],
-        "orch_kubernetes": r.Data.environment["kubernetes"],
-        "orch_mesos": r.Data.environment["mesos"],
-        "orch_swarm": r.Data.environment["swarm"],
-        "orch_windows": r.Data.environment["windows"],
-        "host_active": r.Data.host["active"],
-        "host_cpu_cores_total": r.Data.host["cpu_cores_total"],
-        "host_mem_mb_total": r.Data.host["mem_mb_total"],
-        "service_active": r.Data.service["active"],
-        "service_total": r.Data.service["total"],
-        "stack_active": r.Data.stack["active"],
-        "stack_total": r.Data.stack["total"],
-    }
-    t := map[string]string{
-    	"id":  strconv.FormatInt(r.Id, 10),
-        "uid": r.Uid,
-        "ip": r.LastIp,
-		"install_image": r.Data.install["image"],
-		"install_version": r.Data.install["version"],
-        "city": r.Location.City,
-        "country": r.Location.Country.Name,
-        "country_isocode": r.Location.Country.ISOCode,
-        "status": r.Status,
-    }
+	var v map[string]interface{}
+	var t map[string]string
 
-	m, err := influx.NewPoint(n,t,v,r.Data.ts)
+	if r.RecordVer == "1" {
+		orch := r.Record["environment"].(map[string]interface{})["orch"].(map[string]interface{})
+		orch_key := [5]string{"cattle", "kubernetes", "mesos", "swarm", "windows"}
+		for _, key := range orch_key {
+			if orch[key] == nil {
+				orch[key] = float64(0)
+			}
+		}
+		v = map[string]interface{}{
+			"ip":                   r.LastIp,
+			"uid":                  r.Uid,
+			"container_running":    r.Record["container"].(map[string]interface{})["running"],
+			"container_total":      r.Record["container"].(map[string]interface{})["total"],
+			"environment_total":    r.Record["environment"].(map[string]interface{})["total"],
+			"orch_cattle":          orch["cattle"],
+			"orch_kubernetes":      orch["kubernetes"],
+			"orch_mesos":           orch["mesos"],
+			"orch_swarm":           orch["swarm"],
+			"orch_windows":         orch["windows"],
+			"host_active":          r.Record["host"].(map[string]interface{})["active"],
+			"host_cpu_cores_total": r.Record["host"].(map[string]interface{})["cpu"].(map[string]interface{})["cores_total"],
+			"host_mem_mb_total":    r.Record["host"].(map[string]interface{})["mem"].(map[string]interface{})["mb_total"],
+			"service_active":       r.Record["service"].(map[string]interface{})["active"],
+			"service_total":        r.Record["service"].(map[string]interface{})["total"],
+			"stack_active":         r.Record["stack"].(map[string]interface{})["active"],
+			"stack_total":          r.Record["stack"].(map[string]interface{})["total"],
+			"stack_from_catalog":   r.Record["stack"].(map[string]interface{})["from_catalog"],
+		}
+	}
+	if r.RecordVer == "2" {
+		v = map[string]interface{}{
+			"ip":                             r.LastIp,
+			"uid":                            r.Uid,
+			"cluster_active":                 r.Record["cluster"].(map[string]interface{})["active"],
+			"cluster_total":                  r.Record["cluster"].(map[string]interface{})["total"],
+			"cluster_namespace_total":        r.Record["cluster"].(map[string]interface{})["namespace"].(map[string]interface{})["total"],
+			"cluster_namespace_from_catalog": r.Record["cluster"].(map[string]interface{})["namespace"].(map[string]interface{})["from_catalog"],
+			"cluster_cpu_total":              r.Record["cluster"].(map[string]interface{})["cpu"].(map[string]interface{})["cores_total"],
+			"cluster_cpu_util":               r.Record["cluster"].(map[string]interface{})["cpu"].(map[string]interface{})["util_avg"],
+			"cluster_mem_mb_total":           r.Record["cluster"].(map[string]interface{})["mem"].(map[string]interface{})["mb_total"],
+			"cluster_mem_util":               r.Record["cluster"].(map[string]interface{})["mem"].(map[string]interface{})["util_avg"],
+			"node_active":                    r.Record["node"].(map[string]interface{})["active"],
+			"node_total":                     r.Record["node"].(map[string]interface{})["total"],
+			"node_from_template":             r.Record["node"].(map[string]interface{})["from_template"],
+			"node_mem_mb_total":              r.Record["node"].(map[string]interface{})["mem"].(map[string]interface{})["mb_total"],
+			"node_mem_util":                  r.Record["node"].(map[string]interface{})["mem"].(map[string]interface{})["util_avg"],
+			"node_role_controlplane":         r.Record["node"].(map[string]interface{})["role"].(map[string]interface{})["controlplane"],
+			"node_role_etcd":                 r.Record["node"].(map[string]interface{})["role"].(map[string]interface{})["etcd"],
+			"node_role_worker":               r.Record["node"].(map[string]interface{})["role"].(map[string]interface{})["worker"],
+			"project_total":                  r.Record["project"].(map[string]interface{})["total"],
+			"project_namespace_total":        r.Record["project"].(map[string]interface{})["namespace"].(map[string]interface{})["total"],
+			"project_namespace_from_catalog": r.Record["project"].(map[string]interface{})["namespace"].(map[string]interface{})["from_catalog"],
+			"project_workload_total":         r.Record["project"].(map[string]interface{})["workload"].(map[string]interface{})["total"],
+			"project_pod_total":              r.Record["project"].(map[string]interface{})["pod"].(map[string]interface{})["total"],
+		}
+	}
+
+	t = map[string]string{
+		"id":              r.Id,
+		"uid":             r.Uid,
+		"ip":              r.LastIp,
+		"install_image":   r.Record["install"].(map[string]interface{})["image"].(string),
+		"install_version": r.Record["install"].(map[string]interface{})["version"].(string),
+		"record_version":  r.RecordVer,
+		"city":            r.Location.City,
+		"country":         r.Location.Country.Name,
+		"country_isocode": r.Location.Country.ISOCode,
+		"status":          r.Status,
+	}
+
+	m, err := influx.NewPoint(n, t, v, r.LastSeen)
 	if err != nil {
 		log.Warn(err)
 	}
 
 	return m
-} 
+}
 
 func (r *Request) Marshal() ([]byte, error) {
 	return json.Marshal(r)
@@ -181,7 +219,7 @@ func (r *Request) printJson() {
 
 	j, err := json.Marshal(r)
 	if err != nil {
-    	log.Error("json", err)
+		log.Error("json", err)
 	}
 
 	fmt.Println(string(j))
@@ -189,196 +227,134 @@ func (r *Request) printJson() {
 }
 
 func (r *Request) getLocation(geoipdb string) {
-    db, err := maxminddb.Open(geoipdb)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer db.Close()
+	db, err := maxminddb.Open(geoipdb)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
 
-    ip := net.ParseIP(r.LastIp)
+	ip := net.ParseIP(r.LastIp)
 
-    var record struct {
-        City    struct {
-            Names map[string]string `maxminddb:"names"`
-        } `maxminddb:"city"`
-        Country struct {
-            Names map[string]string `maxminddb:"names"`
-            ISOCode string `maxminddb:"iso_code"`
-        } `maxminddb:"country"`
-    } // Or any appropriate struct
+	var record struct {
+		City struct {
+			Names map[string]string `maxminddb:"names"`
+		} `maxminddb:"city"`
+		Country struct {
+			Names   map[string]string `maxminddb:"names"`
+			ISOCode string            `maxminddb:"iso_code"`
+		} `maxminddb:"country"`
+	} // Or any appropriate struct
 
-    err = db.Lookup(ip, &record)
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    r.Location.City = record.City.Names["en"] 
-    r.Location.Country.Name = record.Country.Names["en"]
-    r.Location.Country.ISOCode = record.Country.ISOCode
+	err = db.Lookup(ip, &record)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	r.Location.City = record.City.Names["en"]
+	r.Location.Country.Name = record.Country.Names["en"]
+	r.Location.Country.ISOCode = record.Country.ISOCode
 
 }
 
-func (r *Request) isNew() string{
+func (r *Request) isNew() string {
 	diff := r.LastSeen.Sub(r.FirstSeen)
 
 	if diff.Hours() > 24 {
 		return "active"
 	} else {
 		return "new"
-	} 
+	}
 }
 
-func (r *Request) getData(geoipdb string) bool{
+func (r *Request) getData(geoipdb string) bool {
+	if !r.checkData() {
+		log.Debugf("Skipping request without correct data")
+		return false
+	}
 
-	if r.initData() {
-		r.getLocation(geoipdb)
+	now := time.Now()
+	diff := now.Sub(r.LastSeen)
 
-		m := r.Record.(map[string]interface{})
+	if diff < 0 {
+		log.Debugf("Skipping request with time in future ", r.LastSeen)
+		r.printJson()
+		return false
+	}
 
-		if m != nil {
+	r.getLocation(geoipdb)
+	r.Status = r.isNew()
 
-			if m["container"] != nil {
-				container := m["container"].(map[string]interface{})
-				if container["running"] != nil {
-					r.Data.container["running"] = container["running"].(float64)
-				}
-				if container["total"] != nil {
-					r.Data.container["total"] = container["total"].(float64)
-				}
-			}
+	return true
 
-			if m["environment"] != nil {
-				environment := m["environment"].(map[string]interface{})
-				if environment["total"] != nil {
-					r.Data.environment["total"] = environment["total"].(float64)
-				}
-				if environment["orch"] != nil {
-					orch := environment["orch"].(map[string]interface{})
-					if orch["cattle"] != nil {
-						r.Data.environment["cattle"] = orch["cattle"].(float64)
-					}
-					if orch["kubernetes"] != nil {
-						r.Data.environment["kubernetes"] = orch["kubernetes"].(float64)
-					}
-					if orch["mesos"] != nil {
-						r.Data.environment["mesos"] = orch["mesos"].(float64)
-					}
-					if orch["swarm"] != nil {
-						r.Data.environment["swarm"] = orch["swarm"].(float64)
-					}
-					if orch["windows"] != nil {
-						r.Data.environment["windows"] = orch["windows"].(float64)
-					}
-				}
-			}
+}
 
-			if m["service"] != nil {
-				service := m["service"].(map[string]interface{})
-				if service["total"] != nil {
-					r.Data.service["total"] = service["total"].(float64)
-				}
-				if service["active"] != nil {
-					r.Data.service["active"] = service["active"].(float64)
-				}
-			}
+type Params struct {
+	url        string
+	accessKey  string
+	secretKey  string
+	influxurl  string
+	influxdb   string
+	influxuser string
+	influxpass string
+	geoipdb    string
+	file       string
+	format     string
+	preview    bool
+	limit      int
+	refresh    int
+	flush      int
+}
 
-			if m["stack"] != nil {
-				stack := m["stack"].(map[string]interface{})
-				if stack["total"] != nil {
-					r.Data.stack["total"] = stack["total"].(float64)
-				}
-				if stack["active"] != nil {
-					r.Data.stack["active"] = stack["active"].(float64)
-				}
-			}
-
-			if m["install"] != nil {
-				install := m["install"].(map[string]interface{})
-				if install["image"] != nil {
-					r.Data.install["image"] = install["image"].(string)
-				}
-				if install["version"] != nil {
-					r.Data.install["version"] = install["version"].(string)
-				}
-			}
-
-			if m["host"] != nil {
-				host := m["host"].(map[string]interface{})
-				if host["cpu"] != nil {
-					cpu := host["cpu"].(map[string]interface{})
-					if cpu["cores_total"] != nil {
-						r.Data.host["cpu_cores_total"] = cpu["cores_total"].(float64)
-					}
-				}
-				if host["mem"] != nil {
-					mem := host["mem"].(map[string]interface{})
-					if mem["mb_total"] != nil {
-						r.Data.host["mem_mb_total"] = mem["mb_total"].(float64)
-					}
-				}
-				var host_active, host_count float64
-				if host["active"] != nil {
-					host_active = host["active"].(float64)
-				}
-				if host["count"] != nil {
-					host_count = host["count"].(float64)
-				}
-
-				if host_active < host_count {
-					host_active = host_count
-				}
-
-				r.Data.host["active"] = host_active
-			}
-
-			now := time.Now()
-     		diff := now.Sub(r.LastSeen)
-
-     		if diff < 0 {
-     			log.Warn("Time in future ", r.LastSeen)
-     			r.printJson()
-     			return false
-			} 
-			r.Data.ts = r.LastSeen
-
-			r.Status = r.isNew()
-
-			return true
-		}
-	} 
-	return false
-
+func RunRequests(c *cli.Context) {
+	params := Params{
+		url:        c.String("url"),
+		accessKey:  c.String("accesskey"),
+		secretKey:  c.String("secretkey"),
+		influxurl:  c.String("influxurl"),
+		influxdb:   c.String("influxdb"),
+		influxuser: c.String("influxuser"),
+		influxpass: c.String("influxpass"),
+		geoipdb:    c.String("geoipdb"),
+		file:       c.String("file"),
+		format:     c.String("format"),
+		preview:    c.Bool("preview"),
+		limit:      c.Int("limit"),
+		refresh:    c.Int("refresh"),
+		flush:      c.Int("flush"),
+	}
+	req := newRequests(params)
+	req.getDataByUrl()
 }
 
 type Requests struct {
-	Input 			chan *Request
-	Output 			chan *influx.Point
-	Exit 			chan os.Signal
-	Readers			[]chan struct{}
-	Config 			Params
-	Data 			[]Request `json:"data"`
+	Input   chan *Request
+	Output  chan *influx.Point
+	Exit    chan os.Signal
+	Readers []chan struct{}
+	Config  Params
+	Data    []Request `json:"data"`
 }
 
 func newRequests(conf Params) *Requests {
 	var r = &Requests{
 		Readers: []chan struct{}{},
-		Config:	conf,
+		Config:  conf,
 	}
 
-	r.Input = make(chan *Request,1)
-	r.Output = make(chan *influx.Point,1)
+	r.Input = make(chan *Request, 1)
+	r.Output = make(chan *influx.Point, 1)
 	r.Exit = make(chan os.Signal, 1)
 	signal.Notify(r.Exit, os.Interrupt, os.Kill)
 
 	customFormatter := new(log.TextFormatter)
-    customFormatter.TimestampFormat = "2006-01-02 15:04:05"
-    log.SetFormatter(customFormatter)
-    customFormatter.FullTimestamp = true
+	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
+	log.SetFormatter(customFormatter)
+	customFormatter.FullTimestamp = true
 
 	return r
 }
 
-func (r *Requests) Close(){
+func (r *Requests) Close() {
 	close(r.Input)
 	close(r.Output)
 	close(r.Exit)
@@ -387,8 +363,8 @@ func (r *Requests) Close(){
 
 func (r *Requests) sendToInflux() {
 	var points []influx.Point
-	var index,p_len int
-	
+	var index, p_len int
+
 	i := newInflux(r.Config.influxurl, r.Config.influxdb, r.Config.influxuser, r.Config.influxpass)
 
 	if i.Connect() {
@@ -399,44 +375,44 @@ func (r *Requests) sendToInflux() {
 
 		index = 0
 		for {
-	        select {
-	        case <-connected:
-	        	return
-	        case <-ticker.C:
-	        	if len(points) > 0 {
-	            	log.Info("Tick: Sending to influx ", len(points), " points")
-	    			if i.sendToInflux(points,1) {
-	    				points = []influx.Point{}
-	    			} else {
-	    				return
-	    			}
-	    		} 
-	        case p := <- r.Output:
-	        	if p != nil {
-	        		points = append(points, *p)
-	        		p_len = len(points)
-	        		if p_len == r.Config.limit {
-	            		log.Info("Batch: Sending to influx ", p_len, " points")
-	            		if i.sendToInflux(points,1) {
-	    					points = []influx.Point{}
-	    				} else {
-	    					return
-	    				}
-	            	}
-	            	index++
-	        	} else {
-	        		p_len = len(points)
-	        		if p_len > 0 {
-	        			log.Info("Batch: Sending to influx ", p_len, " points")
-	            		if i.sendToInflux(points,1) {
-	    					points = []influx.Point{}
-	    				}
-	        		}
-	        		return
-	        	}
-	        }
-	    }
-	} 
+			select {
+			case <-connected:
+				return
+			case <-ticker.C:
+				if len(points) > 0 {
+					log.Info("Tick: Sending to influx ", len(points), " points")
+					if i.sendToInflux(points, 1) {
+						points = []influx.Point{}
+					} else {
+						return
+					}
+				}
+			case p := <-r.Output:
+				if p != nil {
+					points = append(points, *p)
+					p_len = len(points)
+					if p_len == r.Config.limit {
+						log.Info("Batch: Sending to influx ", p_len, " points")
+						if i.sendToInflux(points, 1) {
+							points = []influx.Point{}
+						} else {
+							return
+						}
+					}
+					index++
+				} else {
+					p_len = len(points)
+					if p_len > 0 {
+						log.Info("Batch: Sending to influx ", p_len, " points")
+						if i.sendToInflux(points, 1) {
+							points = []influx.Point{}
+						}
+					}
+					return
+				}
+			}
+		}
+	}
 }
 
 func (r *Requests) addReader() chan struct{} {
@@ -457,8 +433,8 @@ func (r *Requests) closeReaders() {
 
 func (r *Requests) getDataByUrl() {
 	var in, out sync.WaitGroup
-	indone := make(chan struct{},1)
-	outdone := make(chan struct{},1)
+	indone := make(chan struct{}, 1)
+	outdone := make(chan struct{}, 1)
 
 	in.Add(1)
 	go func() {
@@ -489,24 +465,24 @@ func (r *Requests) getDataByUrl() {
 	}()
 
 	for {
-        select {
-        case <- indone:
-        	<- outdone
-        	return
-        case <- outdone:
-        	log.Error("Aborting...")
-        	go r.closeReaders()
-        	return
-        case <- r.Exit:
-        	//close(r.Exit)
-        	log.Info("Exit signal detected....Closing...")
-        	go r.closeReaders()
-        	select {
-        	case <- outdone:
-        		return
-        	}
-        }
-    }
+		select {
+		case <-indone:
+			<-outdone
+			return
+		case <-outdone:
+			log.Error("Aborting...")
+			go r.closeReaders()
+			return
+		case <-r.Exit:
+			//close(r.Exit)
+			log.Info("Exit signal detected....Closing...")
+			go r.closeReaders()
+			select {
+			case <-outdone:
+				return
+			}
+		}
+	}
 }
 
 func (r *Requests) getDataByChan(stop chan struct{}) {
@@ -516,14 +492,14 @@ func (r *Requests) getDataByChan(stop chan struct{}) {
 	go r.getData()
 
 	for {
-        select {
-        case <-ticker.C:
-        		log.Info("Tick: Getting data...")
-            	go r.getData()
-        case <- stop:
-            return
-        }
-    }
+		select {
+		case <-ticker.C:
+			log.Info("Tick: Getting data...")
+			go r.getData()
+		case <-stop:
+			return
+		}
+	}
 }
 
 func (r *Requests) getDataByFile() {
@@ -531,12 +507,12 @@ func (r *Requests) getDataByFile() {
 	dat, err := ioutil.ReadFile(r.Config.file)
 
 	if err != nil {
-		log.Error("Error reading file ", r.Config.file , err)
+		log.Error("Error reading file ", r.Config.file, err)
 	}
 
 	lines := bytes.Split(dat, []byte("\n"))
 
-	for _ , line := range lines {
+	for _, line := range lines {
 		if line != nil {
 			req := newrequestByString(string(line), "|")
 			if req != nil {
@@ -545,7 +521,7 @@ func (r *Requests) getDataByFile() {
 		}
 	}
 
-	for _ , req := range r.Data {
+	for _, req := range r.Data {
 		aux := Request{}
 		aux = req
 		if aux.getData(r.Config.geoipdb) {
@@ -555,7 +531,7 @@ func (r *Requests) getDataByFile() {
 				r.Output <- aux.getPoint()
 			}
 		}
-    }
+	}
 }
 
 func (r *Requests) getData() {
@@ -565,10 +541,10 @@ func (r *Requests) getData() {
 
 	err := getJSON(r.Config.url+uri, r.Config.accessKey, r.Config.secretKey, r)
 	if err != nil {
-		log.Error("Error getting JSON from URL ", r.Config.url+uri , err)
+		log.Error("Error getting JSON from URL ", r.Config.url+uri, err)
 	}
 
-	for _ , req := range r.Data {
+	for _, req := range r.Data {
 		aux := Request{}
 		aux = req
 		if aux.getData(r.Config.geoipdb) {
@@ -578,7 +554,7 @@ func (r *Requests) getData() {
 				r.Output <- aux.getPoint()
 			}
 		}
-    }
+	}
 }
 
 func (r *Requests) print() {
@@ -593,35 +569,36 @@ func (r *Requests) getOutput() {
 	if r.Config.format == "json" {
 		r.printJson()
 	} else {
-		r.sendToInflux()
-		//r.printInflux()
+		if r.Config.preview {
+			r.printInflux()
+		} else {
+			r.sendToInflux()
+		}
 	}
 }
 
 func (r *Requests) printJson() {
 	for {
-        select {
-        case req := <- r.Input:
-        	if req != nil {
-            	req.printJson()
-        	} else {
-        		return
-        	}
-        }
-    }
+		select {
+		case req := <-r.Input:
+			if req != nil {
+				req.printJson()
+			} else {
+				return
+			}
+		}
+	}
 }
 
 func (r *Requests) printInflux() {
 	for {
-        select {
-        case p := <- r.Output:
-        	if p != nil {
-            	fmt.Println(p.String())
-        	} else {
-        		return
-        	}
-        }
-    }
+		select {
+		case p := <-r.Output:
+			if p != nil {
+				fmt.Println(p.String())
+			} else {
+				return
+			}
+		}
+	}
 }
-
-
