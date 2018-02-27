@@ -5,10 +5,6 @@ import (
 	//"regexp"
 	"bytes"
 	"encoding/json"
-	log "github.com/Sirupsen/logrus"
-	influx "github.com/influxdata/influxdb/client/v2"
-	"github.com/oschwald/maxminddb-golang"
-	"github.com/urfave/cli"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -18,6 +14,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	influx "github.com/influxdata/influxdb/client/v2"
+	"github.com/oschwald/maxminddb-golang"
+	"github.com/urfave/cli"
 )
 
 func getJSON(url string, accessKey string, secretKey string, target interface{}) error {
@@ -57,7 +58,7 @@ type reqLocation struct {
 }
 
 type Request struct {
-	Id        string                 `json:"id"`
+	Id        int64                  `json:"id"`
 	Uid       string                 `json:"uid"`
 	FirstSeen time.Time              `json:"first_seen"`
 	LastSeen  time.Time              `json:"last_seen"`
@@ -75,7 +76,10 @@ func newrequestByString(line, sep string) *Request {
 	if len(s) == 6 {
 		req := &Request{}
 
-		req.Id = s[0]
+		req.Id, err = strconv.ParseInt(s[0], 10, 64)
+		if err != nil {
+			log.Info("Error parsing Id ", s[0], err)
+		}
 		req.Uid = s[1]
 		req.FirstSeen, err = time.Parse("2006-01-02 15:04:05.999999", s[2])
 		if err != nil {
@@ -191,7 +195,7 @@ func (r *Request) getPoint() *influx.Point {
 	}
 
 	t = map[string]string{
-		"id":              r.Id,
+		"id":              strconv.FormatInt(r.Id, 10),
 		"uid":             r.Uid,
 		"ip":              r.LastIp,
 		"install_image":   r.Record["install"].(map[string]interface{})["image"].(string),
