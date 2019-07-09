@@ -25,7 +25,7 @@ RUN apk add --no-cache git mercurial bzr make go musl-dev && \
     cd ${SERVICE_HOME} && \ 
     curl -sS http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz | gunzip -c - | tar -xf - && \ 
     mv GeoLite2-City_*/GeoLite2-City.mmdb . && \
-    rm -rf /opt/src GeoLite2-City_* && \
+    rm -rf /opt/src /gopath GeoLite2-City_* && \
     apk del --no-cache git mercurial bzr make go musl-dev && \
     addgroup -g ${SERVICE_GID} ${SERVICE_GROUP} && \
     adduser -g "${SERVICE_NAME} user" -D -h ${SERVICE_HOME} -G ${SERVICE_GROUP} -s /sbin/nologin -u ${SERVICE_UID} ${SERVICE_USER}

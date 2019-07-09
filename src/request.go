@@ -16,7 +16,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	influx "github.com/influxdata/influxdb/client/v2"
+	influx "github.com/influxdata/influxdb1-client/v2"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/urfave/cli"
 )
