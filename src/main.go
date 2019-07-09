@@ -50,7 +50,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "url",
 			Usage:  "url to reach telemetry",
-			Value:  "http://telemetry.rancher.io",
+			Value:  "https://telemetry.rancher.io",
 			EnvVar: "TELEMETRY_URL",
 		},
 
@@ -101,6 +101,11 @@ func main() {
 			Name:  "influxpass",
 			Usage: "Influx password",
 			Value: "",
+		},
+
+		cli.BoolFlag{
+			Name:  "insecure",
+			Usage: "Allow insecure connection to telemetry",
 		},
 
 		cli.StringFlag{

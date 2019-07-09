@@ -13,7 +13,7 @@ docker build -t rawmind/rancher-telemetry-stats:<version> .
 
 ## Versions
 
-- `0.2-2` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.2-2/Dockerfile)
+- `0.2-3` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.2-3/Dockerfile)
 - `0.1-3` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.1-3/Dockerfile)
 
 
@@ -52,6 +52,7 @@ GLOBAL OPTIONS:
    --influxdb value    Influx db name (default: "telemetry")
    --influxuser value  Influx username
    --influxpass value  Influx password
+   --insecure          Allow insecure connection to telemetry
    --geoipdb value     Geoip db file. (default: "GeoLite2-City.mmdb")
    --file value        Read requests from file.
    --limit value       Limit batch size (default: 2000)
@@ -69,7 +70,7 @@ Metrics are on the form...
 
 Telemetry record version 1
 ```
-telemetry,city=city,country=country,country_isocode=country_isocode,id=XXXX,install_image=rancher/server,install_version=v1.6.0,uid=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX container_running=0,container_total=0,environment_total=1,host_active=0,host_cpu_cores_total=0,host_mem_mb_total=0,ip="XX.XX.XX.XX",orch_cattle=1,orch_kubernetes=0,orch_mesos=0,orch_swarm=0,orch_windows=0,service_active=0,service_total=5,stack_active=4,stack_total=4,stack_from_catalog=4,uid="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX" 1494436673713117000
+telemetry,city=city,country=country,country_isocode=country_isocode,id=XXXX,install_image=rancher/server,install_version=v1.6.0,record_version=1,status=new,uid=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX container_running=0,container_total=0,environment_total=1,host_active=0,host_cpu_cores_total=0,host_mem_mb_total=0,ip="XX.XX.XX.XX",orch_cattle=1,orch_kubernetes=0,orch_mesos=0,orch_swarm=0,orch_windows=0,service_active=0,service_total=5,stack_active=4,stack_total=4,stack_from_catalog=4,uid="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX" 1494436673713117000
 ```
 
 Telemetry record version 2

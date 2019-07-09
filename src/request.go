@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
-	//"regexp"
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -21,13 +21,31 @@ import (
 	"github.com/urfave/cli"
 )
 
-func getJSON(url string, accessKey string, secretKey string, target interface{}) error {
+func getJSON(url string, accessKey string, secretKey string, insecure bool, target interface{}) error {
 
 	start := time.Now()
 
 	log.Info("Connecting to ", url)
 
-	client := &http.Client{}
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+            if len(via) >= 4 {
+                return fmt.Errorf("stopped after 4 redirects")
+            }
+            req.SetBasicAuth(accessKey,secretKey)
+            return nil
+        },
+	}
+
+	if insecure {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: insecure,
+			},
+		}
+		client.Transport = tr
+	}
+
 	req, err := http.NewRequest("GET", url, nil)
 	req.SetBasicAuth(accessKey, secretKey)
 	resp, err := client.Do(req)
@@ -300,6 +318,7 @@ type Params struct {
 	influxdb   string
 	influxuser string
 	influxpass string
+	insecure   bool
 	geoipdb    string
 	file       string
 	format     string
@@ -318,6 +337,7 @@ func RunRequests(c *cli.Context) {
 		influxdb:   c.String("influxdb"),
 		influxuser: c.String("influxuser"),
 		influxpass: c.String("influxpass"),
+		insecure:   c.Bool("insecure"),
 		geoipdb:    c.String("geoipdb"),
 		file:       c.String("file"),
 		format:     c.String("format"),
@@ -543,7 +563,7 @@ func (r *Requests) getData() {
 
 	uri = "/admin/active"
 
-	err := getJSON(r.Config.url+uri, r.Config.accessKey, r.Config.secretKey, r)
+	err := getJSON(r.Config.url+uri, r.Config.accessKey, r.Config.secretKey, r.Config.insecure, r)
 	if err != nil {
 		log.Error("Error getting JSON from URL ", r.Config.url+uri, err)
 	}
