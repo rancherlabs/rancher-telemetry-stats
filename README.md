@@ -43,7 +43,7 @@ GLOBAL OPTIONS:
    --debug             debug logging [$TELEMETRY_DEBUG]
    --log value         path to log to [$TELEMETRY_LOG]
    --pid-file value    path to write PID to [$TELEMETRY_PID_FILE]
-   --url value         url to reach telemetry (default: "http://telemetry.rancher.io") [$TELEMETRY_URL]
+   --url value         url to reach telemetry (default: "https://telemetry.rancher.io") [$TELEMETRY_URL]
    --accesskey value   access key for api [$TELEMETRY_ACCESS_KEY]
    --secretkey value   secret key for api [$TELEMETRY_SECRET_KEY]
    --format value      Output format. influx | json (default: "influx")
