@@ -29,12 +29,12 @@ func getJSON(url string, accessKey string, secretKey string, insecure bool, targ
 
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-            if len(via) >= 4 {
-                return fmt.Errorf("stopped after 4 redirects")
-            }
-            req.SetBasicAuth(accessKey,secretKey)
-            return nil
-        },
+			if len(via) >= 4 {
+				return fmt.Errorf("stopped after 4 redirects")
+			}
+			req.SetBasicAuth(accessKey, secretKey)
+			return nil
+		},
 	}
 
 	if insecure {
@@ -194,11 +194,22 @@ func (r *Request) getPoint() *influx.Point {
 			"cluster_namespace_from_catalog": r.Record["cluster"].(map[string]interface{})["namespace"].(map[string]interface{})["from_catalog"],
 			"cluster_cpu_total":              r.Record["cluster"].(map[string]interface{})["cpu"].(map[string]interface{})["cores_total"],
 			"cluster_cpu_util":               r.Record["cluster"].(map[string]interface{})["cpu"].(map[string]interface{})["util_avg"],
+			"cluster_driver_aks":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["azureKubernetesService"],
+			"cluster_driver_eks":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["amazonElasticContainerService"],
+			"cluster_driver_gke":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["googleKubernetesEngine"],
+			"cluster_driver_imported":        r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["imported"],
+			"cluster_driver_rke":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["rancherKubernetesEngine"],
 			"cluster_mem_mb_total":           r.Record["cluster"].(map[string]interface{})["mem"].(map[string]interface{})["mb_total"],
 			"cluster_mem_util":               r.Record["cluster"].(map[string]interface{})["mem"].(map[string]interface{})["util_avg"],
 			"node_active":                    r.Record["node"].(map[string]interface{})["active"],
 			"node_total":                     r.Record["node"].(map[string]interface{})["total"],
+			"node_driver_azure":              r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["azure"],
+			"node_driver_ec2":                r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["amazonec2"],
+			"node_driver_do":                 r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["digitalocean"],
+			"node_driver_openstack":          r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["openstack"],
+			"node_driver_vsphere":            r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["vmwarevsphere"],
 			"node_from_template":             r.Record["node"].(map[string]interface{})["from_template"],
+			"node_imported":                  r.Record["node"].(map[string]interface{})["imported"],
 			"node_mem_mb_total":              r.Record["node"].(map[string]interface{})["mem"].(map[string]interface{})["mb_total"],
 			"node_mem_util":                  r.Record["node"].(map[string]interface{})["mem"].(map[string]interface{})["util_avg"],
 			"node_role_controlplane":         r.Record["node"].(map[string]interface{})["role"].(map[string]interface{})["controlplane"],
@@ -561,7 +572,7 @@ func (r *Requests) getDataByFile() {
 func (r *Requests) getData() {
 	var uri string
 
-	uri = "/admin/active"
+	uri = "/admin/active?hours=96"
 
 	err := getJSON(r.Config.url+uri, r.Config.accessKey, r.Config.secretKey, r.Config.insecure, r)
 	if err != nil {
