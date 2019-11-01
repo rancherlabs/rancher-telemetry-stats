@@ -13,7 +13,7 @@ docker build -t rawmind/rancher-telemetry-stats:<version> .
 
 ## Versions
 
-- `0.2-5` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.2-5/Dockerfile)
+- `0.2-6` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.2-6/Dockerfile)
 - `0.1-3` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.1-3/Dockerfile)
 
 
@@ -44,6 +44,7 @@ GLOBAL OPTIONS:
    --log value         path to log to [$TELEMETRY_LOG]
    --pid-file value    path to write PID to [$TELEMETRY_PID_FILE]
    --url value         url to reach telemetry (default: "https://telemetry.rancher.io") [$TELEMETRY_URL]
+   --hours value       telemetry hours to get (default: 48)
    --accesskey value   access key for api [$TELEMETRY_ACCESS_KEY]
    --secretkey value   secret key for api [$TELEMETRY_SECRET_KEY]
    --format value      Output format. influx | json (default: "influx")

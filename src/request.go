@@ -323,6 +323,7 @@ func (r *Request) getData(geoipdb string) bool {
 
 type Params struct {
 	url        string
+	hours      int
 	accessKey  string
 	secretKey  string
 	influxurl  string
@@ -342,6 +343,7 @@ type Params struct {
 func RunRequests(c *cli.Context) {
 	params := Params{
 		url:        c.String("url"),
+		hours:      c.Int("hours"),
 		accessKey:  c.String("accesskey"),
 		secretKey:  c.String("secretkey"),
 		influxurl:  c.String("influxurl"),
@@ -572,7 +574,7 @@ func (r *Requests) getDataByFile() {
 func (r *Requests) getData() {
 	var uri string
 
-	uri = "/admin/active?hours=96"
+	uri = "/admin/active?hours=" + strconv.Itoa(r.Config.hours)
 
 	err := getJSON(r.Config.url+uri, r.Config.accessKey, r.Config.secretKey, r.Config.insecure, r)
 	if err != nil {

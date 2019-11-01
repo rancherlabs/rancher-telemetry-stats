@@ -54,6 +54,12 @@ func main() {
 			EnvVar: "TELEMETRY_URL",
 		},
 
+		cli.IntFlag{
+			Name:  "hours",
+			Usage: "telemetry hours to get",
+			Value: 48,
+		},
+
 		cli.StringFlag{
 			Name:   "accesskey",
 			Usage:  "access key for api",
