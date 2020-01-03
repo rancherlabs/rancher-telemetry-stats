@@ -223,11 +223,16 @@ func (r *Request) getPoint() *influx.Point {
 		}
 	}
 
+	installImage := "rancher/rancher"
+	if image := r.Record["install"].(map[string]interface{})["image"]; image != nil {
+		installImage = image.(string)
+	}
+
 	t = map[string]string{
 		"id":              strconv.FormatInt(r.Id, 10),
 		"uid":             r.Uid,
 		"ip":              r.LastIp,
-		"install_image":   r.Record["install"].(map[string]interface{})["image"].(string),
+		"install_image":   installImage,
 		"install_version": r.Record["install"].(map[string]interface{})["version"].(string),
 		"record_version":  r.RecordVer,
 		"city":            r.Location.City,

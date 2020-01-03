@@ -13,7 +13,7 @@ docker build -t rawmind/rancher-telemetry-stats:<version> .
 
 ## Versions
 
-- `0.2-6` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.2-6/Dockerfile)
+- `0.2-7` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.2-7/Dockerfile)
 - `0.1-3` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.1-3/Dockerfile)
 
 
