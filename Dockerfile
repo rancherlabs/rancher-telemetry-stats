@@ -20,6 +20,7 @@ RUN apk add --no-cache git mercurial bzr make go musl-dev && \
     cd /opt/src/src/github.com/rawmind0/rancher-telemetry-stats && \
     go build -o ${SERVICE_NAME} && \
     mkdir ${SERVICE_HOME} && \
+    gzip -d GeoLite2-City.mmdb.gz && \
     mv ${SERVICE_NAME} GeoLite2-City.mmdb ${SERVICE_HOME}/ && \
     cd ${SERVICE_HOME} && \ 
     rm -rf /opt/src /gopath && \

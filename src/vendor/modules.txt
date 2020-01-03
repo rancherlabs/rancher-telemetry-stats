@@ -1,4 +1,5 @@
 # github.com/influxdata/influxdb1-client v0.0.0-20190809212627-fc22c7df067e
+github.com/influxdata/influxdb1-client
 github.com/influxdata/influxdb1-client/v2
 github.com/influxdata/influxdb1-client/models
 github.com/influxdata/influxdb1-client/pkg/escape
