@@ -1,10 +1,11 @@
 package main
 
 import (
+	"time"
+
 	_ "github.com/influxdata/influxdb1-client"
 	influx "github.com/influxdata/influxdb1-client/v2"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 func check(e error, m string) {

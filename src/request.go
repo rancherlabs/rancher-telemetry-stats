@@ -22,7 +22,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func getJSON(url string, accessKey string, secretKey string, insecure bool, target interface{}) error {
+func getJSONByUrl(url string, accessKey string, secretKey string, insecure bool, target interface{}) error {
 
 	start := time.Now()
 
@@ -66,6 +66,12 @@ func getJSON(url string, accessKey string, secretKey string, insecure bool, targ
 
 	// return formatted JSON
 	return respFormatted
+}
+
+func getJSONByFile(name string, target interface{}) error {
+
+	byteValue, _ := ioutil.ReadFile(name)
+	return json.Unmarshal(byteValue, target)
 }
 
 type reqLocation struct {
@@ -222,6 +228,19 @@ func (r *Request) getPoint() *influx.Point {
 			"project_workload_total":         r.Record["project"].(map[string]interface{})["workload"].(map[string]interface{})["total"],
 			"project_pod_total":              r.Record["project"].(map[string]interface{})["pod"].(map[string]interface{})["total"],
 		}
+		if cloudProvider, ok := r.Record["cluster"].(map[string]interface{})["cloudProvider"].(map[string]interface{}); ok {
+			for key := range cloudProvider {
+				if value, ok := cloudProvider[key].(float64); ok {
+					if key == "gce" || key == "external" {
+						v["cluster_cloud_provider_"+key] = value
+						continue
+					}
+					v["cluster_cloud_provider_"+key] = int(value)
+				} else {
+					v["cluster_cloud_provider_"+key] = 0
+				}
+			}
+		}
 	}
 
 	installImage := "rancher/rancher"
@@ -346,7 +365,7 @@ type Params struct {
 	flush      int
 }
 
-func RunRequests(c *cli.Context) {
+func RunRequests(c *cli.Context) error {
 	params := Params{
 		url:        c.String("url"),
 		hours:      c.Int("hours"),
@@ -367,6 +386,8 @@ func RunRequests(c *cli.Context) {
 	}
 	req := newRequests(params)
 	req.getDataByUrl()
+
+	return nil
 }
 
 type Requests struct {
@@ -482,11 +503,7 @@ func (r *Requests) getDataByUrl() {
 	in.Add(1)
 	go func() {
 		defer in.Done()
-		if r.Config.file != "" {
-			r.getDataByFile()
-		} else {
-			r.getDataByChan(r.addReader())
-		}
+		r.getDataByChan(r.addReader())
 	}()
 
 	out.Add(1)
@@ -577,14 +594,28 @@ func (r *Requests) getDataByFile() {
 	}
 }
 
-func (r *Requests) getData() {
-	var uri string
+func (r *Requests) getJSON() error {
+	if r.Config.file != "" {
+		err := getJSONByFile(r.Config.file, r)
+		if err != nil {
+			return fmt.Errorf("Error getting JSON from file %s: %v", r.Config.file, err)
+		}
+		return nil
+	}
 
-	uri = "/admin/active?hours=" + strconv.Itoa(r.Config.hours)
-
-	err := getJSON(r.Config.url+uri, r.Config.accessKey, r.Config.secretKey, r.Config.insecure, r)
+	uri := "/admin/active?hours=" + strconv.Itoa(r.Config.hours)
+	err := getJSONByUrl(r.Config.url+uri, r.Config.accessKey, r.Config.secretKey, r.Config.insecure, r)
 	if err != nil {
-		log.Error("Error getting JSON from URL ", r.Config.url+uri, err)
+		return fmt.Errorf("Error getting JSON from URL %s: %v", r.Config.url+uri, err)
+	}
+
+	return nil
+}
+
+func (r *Requests) getData() {
+	err := r.getJSON()
+	if err != nil {
+		log.Error("Error getting data ", err)
 	}
 
 	for _, req := range r.Data {
