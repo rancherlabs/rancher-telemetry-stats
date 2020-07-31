@@ -77,6 +77,8 @@ telemetry,city=city,country=country,country_isocode=country_isocode,id=XXXX,inst
 Telemetry record version 2
 ```
 telemetry,city=city,country=country,country_isocode=country_isocode,id=XXXX,install_image=rancher/server,install_version=v2.0.0-alpha16,ip=XX.XX.XX.XX,record_version=2,status=new,uid=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX cluster_active=1,cluster_cloud_provider_aws=0,cluster_cloud_provider_azure=0,cluster_cloud_provider_custom=0,cluster_cloud_provider_openstack=0,cluster_cloud_provider_vsphere=1,cluster_cpu_total=3,cluster_cpu_util=25,cluster_mem_mb_total=2676,cluster_mem_util=12,cluster_namespace_from_catalog=1,cluster_namespace_total=5,cluster_total=1,ip="XX.XX.XX.XX",node_active=3,node_from_template=3,node_mem_mb_total=2676,node_mem_util=12,node_role_controlplane=1,node_role_etcd=1,node_role_worker=2,node_total=3,project_namespace_from_catalog=1,project_namespace_total=2,project_pod_total=2,project_total=1,project_workload_total=1,uid="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX" 1496359077329645000
+telemetry_apps,catalog=system-library,id=33221669,name=rancher-monitoring,uid=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX,version=0.1.1 total=4,uid="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX" 1496359077329645000
+telemetry_drivers,kind=cluster,name=imported,uid=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX total=1,uid="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX" 1496359077329645000
 ```
 
 [alpine-base]: https://github.com/rawmind0/alpine-base

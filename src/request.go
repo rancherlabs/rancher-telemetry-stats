@@ -153,11 +153,112 @@ func (r *Request) checkData() bool {
 
 // Produce wire-formatted string for ingestion into influxdb
 func (r *Request) printInflux() {
-	p := r.getPoint()
-	fmt.Println(p.String())
+	for _, p := range r.getPoints() {
+		fmt.Println(p.String())
+	}
 }
 
-func (r *Request) getPoint() *influx.Point {
+func (r *Request) getPoints() []*influx.Point {
+	out := r.getTelemetryAppPoints()
+	out = append(out, r.getTelemetryDriverPoints()...)
+	return append(out, r.getTelemetryPoint())
+}
+
+func (r *Request) getTelemetryAppPoints() []*influx.Point {
+	out := []*influx.Point{}
+	if r.RecordVer != "2" {
+		return out
+	}
+
+	var n = "telemetry_apps"
+	var v map[string]interface{}
+	var t map[string]string
+
+	t = map[string]string{
+		"id":  strconv.FormatInt(r.Id, 10),
+		"uid": r.Uid,
+	}
+
+	v = map[string]interface{}{
+		"uid": r.Uid,
+	}
+	if apps, ok := r.Record["app"].(map[string]interface{}); ok {
+		if catalogs, ok := apps["rancheCatalogs"].(map[string]interface{}); ok {
+			for catalogKey := range catalogs {
+				if appList, ok := catalogs[catalogKey].(map[string]interface{})["apps"].(map[string]interface{}); ok {
+					for appKey := range appList {
+						if appVer, ok := appList[appKey].(map[string]interface{}); ok {
+							for verKey := range appVer {
+								t["catalog"] = catalogKey
+								t["name"] = appKey
+								t["version"] = verKey
+								v["total"] = appVer[verKey]
+								m, err := influx.NewPoint(n, t, v, r.LastSeen)
+								if err != nil {
+									log.Warn(err)
+									continue
+								}
+								out = append(out, m)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return out
+}
+
+func (r *Request) getTelemetryDriverPoints() []*influx.Point {
+	out := []*influx.Point{}
+	if r.RecordVer != "2" {
+		return out
+	}
+
+	var n = "telemetry_drivers"
+	var v map[string]interface{}
+	var t map[string]string
+
+	t = map[string]string{
+		"id":  strconv.FormatInt(r.Id, 10),
+		"uid": r.Uid,
+	}
+
+	v = map[string]interface{}{
+		"uid": r.Uid,
+	}
+	if clusterDrivers, ok := r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{}); ok {
+		for driverKey := range clusterDrivers {
+			t["kind"] = "cluster"
+			t["name"] = driverKey
+			v["total"] = clusterDrivers[driverKey]
+			m, err := influx.NewPoint(n, t, v, r.LastSeen)
+			if err != nil {
+				log.Warn(err)
+				continue
+			}
+			out = append(out, m)
+		}
+	}
+	if nodeDrivers, ok := r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{}); ok {
+		for driverKey := range nodeDrivers {
+			t["kind"] = "node"
+			t["name"] = driverKey
+			v["total"] = nodeDrivers[driverKey]
+			m, err := influx.NewPoint(n, t, v, r.LastSeen)
+			if err != nil {
+				log.Warn(err)
+				continue
+			}
+			out = append(out, m)
+		}
+	}
+
+	return out
+}
+
+func (r *Request) getTelemetryPoint() *influx.Point {
 	var n = "telemetry"
 	var v map[string]interface{}
 	var t map[string]string
@@ -228,6 +329,7 @@ func (r *Request) getPoint() *influx.Point {
 			"project_workload_total":         r.Record["project"].(map[string]interface{})["workload"].(map[string]interface{})["total"],
 			"project_pod_total":              r.Record["project"].(map[string]interface{})["pod"].(map[string]interface{})["total"],
 		}
+		
 		if cloudProvider, ok := r.Record["cluster"].(map[string]interface{})["cloudProvider"].(map[string]interface{}); ok {
 			for key := range cloudProvider {
 				if value, ok := cloudProvider[key].(float64); ok {
@@ -237,6 +339,10 @@ func (r *Request) getPoint() *influx.Point {
 					}
 					v["cluster_cloud_provider_"+key] = int(value)
 				} else {
+					if key == "gce" || key == "external" {
+						v["cluster_cloud_provider_"+key] = float64(0)
+						continue
+					}
 					v["cluster_cloud_provider_"+key] = 0
 				}
 			}
@@ -588,7 +694,9 @@ func (r *Requests) getDataByFile() {
 			if r.Config.format == "json" {
 				r.Input <- &aux
 			} else {
-				r.Output <- aux.getPoint()
+				for _, point := range aux.getPoints() {
+					r.Output <- point
+				}
 			}
 		}
 	}
@@ -625,7 +733,9 @@ func (r *Requests) getData() {
 			if r.Config.format == "json" {
 				r.Input <- &aux
 			} else {
-				r.Output <- aux.getPoint()
+				for _, point := range aux.getPoints() {
+					r.Output <- point
+				}
 			}
 		}
 	}

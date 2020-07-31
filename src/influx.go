@@ -24,12 +24,12 @@ type Influx struct {
 	timeout time.Duration
 }
 
-func newInflux(u, d, us, pa string) *Influx {
+func newInflux(url, db, user, pass string) *Influx {
 	var a = &Influx{
-		url:  u,
-		db:   d,
-		user: us,
-		pass: pa,
+		url:  url,
+		db:   db,
+		user: user,
+		pass: pass,
 	}
 
 	a.timeout = time.Duration(10)
@@ -39,27 +39,22 @@ func newInflux(u, d, us, pa string) *Influx {
 func (i *Influx) Check(retry int) bool {
 	resp_time, _, err := i.cli.Ping(i.timeout)
 	if err != nil {
-		log.Error("[Error]: ", err)
-		log.Error("Influx disconnected...")
-		connected := false
-		for index := 0; index < retry && !connected; index++ {
-			log.Error("Reconnecting ", index+1, " of ", retry, "...")
+		connected := i.Connect()
+		for index := 1; index <= retry && !connected; index++ {
+			log.Warn("Influx disconnected. Reconnecting ", index+1, " of ", retry, "...")
+			time.Sleep(time.Duration(1) * time.Second)
 			connected = i.Connect()
-			if !connected {
-				time.Sleep(time.Duration(1) * time.Second)
+			if connected {
+				resp_time, _, err = i.cli.Ping(i.timeout)
 			}
 		}
 		if err != nil {
 			log.Error("Failed to connect to influx ", i.url)
 			return false
-		} else {
-			log.Info("Influx response time: ", resp_time)
-			return true
 		}
-	} else {
-		log.Info("Influx response time: ", resp_time)
-		return true
-	}
+	} 
+	log.Info("Influx response time: ", resp_time)
+	return true
 }
 
 func (i *Influx) CheckConnect(interval int) chan bool {
@@ -186,4 +181,11 @@ func (i *Influx) sendToInflux(m []influx.Point, retry int) bool {
 	} else {
 		return false
 	}
+}
+
+func (i *Influx) doQuery(queryString string, retry int) (*influx.Response, error) {
+	if len(queryString) > 0 && i.Check(retry) {
+		return i.cli.Query(influx.NewQuery(queryString, i.db, "s"))
+	}
+	return nil, nil
 }
