@@ -329,6 +329,25 @@ func (r *Request) getTelemetryPoint() *influx.Point {
 			"project_workload_total":         r.Record["project"].(map[string]interface{})["workload"].(map[string]interface{})["total"],
 			"project_pod_total":              r.Record["project"].(map[string]interface{})["pod"].(map[string]interface{})["total"],
 		}
+
+		if value, ok := r.Record["cluster"].(map[string]interface{})["istio"]; ok {
+			v["cluster_istio_total"] = value
+		}
+		if value, ok := r.Record["cluster"].(map[string]interface{})["monitoring"]; ok {
+			v["cluster_monitoring_total"] = value
+		}
+
+		if logProvider, ok := r.Record["cluster"].(map[string]interface{})["logging"].(map[string]interface{}); ok {
+			for key := range logProvider {
+				lowerKey := strings.ToLower(key)
+				if value, ok := logProvider[key].(float64); ok {
+					v["cluster_logging_provider_"+lowerKey] = int(value)
+				} else {
+					v["cluster_logging_provider_"+lowerKey] = 0
+				}
+				v["cluster_logging_provider_"+lowerKey] = logProvider[key]
+			}
+		}
 		
 		if cloudProvider, ok := r.Record["cluster"].(map[string]interface{})["cloudProvider"].(map[string]interface{}); ok {
 			for key := range cloudProvider {

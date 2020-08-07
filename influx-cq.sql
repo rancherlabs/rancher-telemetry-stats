@@ -27,5 +27,5 @@ CREATE CONTINUOUS QUERY "v2_top_clusters_by_active" ON "telemetry" RESAMPLE EVER
 CREATE CONTINUOUS QUERY "v2_top_projects_by_total" ON "telemetry" RESAMPLE EVERY 12h BEGIN SELECT TOP(total, uid, 10) as total, ip, pods, workloads, namespaces INTO v2_top_projects_by_total FROM v2_projects_24h GROUP BY time(1d) END
 CREATE CONTINUOUS QUERY "v2_top_nodes_by_total" ON "telemetry" RESAMPLE EVERY 12h BEGIN SELECT TOP(total, uid, 10) as total, ip, active, mem_mb, controlplane, etcd, worker INTO v2_top_nodes_by_total FROM v2_nodes_24h GROUP BY time(1d) END
 
-CREATE CONTINUOUS QUERY "v2_apps_24h" ON "telemetry" RESAMPLE EVERY 12h BEGIN SELECT mean("total") AS "total" FROM "telemetry_apps" GROUP BY time(1d) END
-CREATE CONTINUOUS QUERY "v2_drivers_24h" ON "telemetry" RESAMPLE EVERY 12h BEGIN SELECT mean("total") AS "total" FROM "telemetry_drivers" GROUP BY time(1d) END
+CREATE CONTINUOUS QUERY "v2_apps_24h" ON "telemetry" RESAMPLE EVERY 12h BEGIN SELECT last("total") AS "total", uid INTO "v2_apps_24h" FROM "telemetry_apps" GROUP BY time(1d),* END
+CREATE CONTINUOUS QUERY "v2_drivers_24h" ON "telemetry" RESAMPLE EVERY 12h BEGIN SELECT last("total") AS "total", uid INTO "v2_drivers_24h" FROM "telemetry_drivers" GROUP BY time(1d),* END
