@@ -307,6 +307,8 @@ func (r *Request) getTelemetryPoint() *influx.Point {
 			"cluster_driver_gke":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["googleKubernetesEngine"],
 			"cluster_driver_imported":        r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["imported"],
 			"cluster_driver_rke":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["rancherKubernetesEngine"],
+			"cluster_driver_k3s":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["k3s"],
+			"cluster_driver_k3sBased":        r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["k3sBased"],
 			"cluster_mem_mb_total":           r.Record["cluster"].(map[string]interface{})["mem"].(map[string]interface{})["mb_total"],
 			"cluster_mem_util":               r.Record["cluster"].(map[string]interface{})["mem"].(map[string]interface{})["util_avg"],
 			"node_active":                    r.Record["node"].(map[string]interface{})["active"],
