@@ -1,33 +1,22 @@
-FROM rawmind/alpine-base:3.10-1
-MAINTAINER Raul Sanchez <rawmind@gmail.com>
+ARG GO_IMAGE=registry.suse.com/bci/golang:1.17
 
-#Set environment
-ENV SERVICE_NAME=rancher-telemetry-stats \
-    SERVICE_HOME=/opt/rancher-telemetry-stats \
-    SERVICE_USER=rancher \
-    SERVICE_UID=10012 \
-    SERVICE_GROUP=rancher \
-    SERVICE_GID=10012 \
-    GOMAXPROCS=2 \
-    GOROOT=/usr/lib/go \
-    GOPATH=/opt/src \
-    GOBIN=/gopath/bin
-ENV PATH=${PATH}:${SERVICE_HOME}
+FROM ${GO_IMAGE} AS build
+ARG upstream=https://github.com/rancherlabs/rancher-telemetry-stats.git
+ARG version
+WORKDIR /src
 
-# Add files
-ADD src /opt/src/src/github.com/rawmind0/rancher-telemetry-stats
-RUN apk add --no-cache git mercurial bzr make go musl-dev && \
-    cd /opt/src/src/github.com/rawmind0/rancher-telemetry-stats && \
-    go build -o ${SERVICE_NAME} && \
-    mkdir ${SERVICE_HOME} && \
-    gzip -d GeoLite2-City.mmdb.gz && \
-    mv ${SERVICE_NAME} GeoLite2-City.mmdb ${SERVICE_HOME}/ && \
-    cd ${SERVICE_HOME} && \ 
-    rm -rf /opt/src /gopath && \
-    apk del --no-cache git mercurial bzr make go musl-dev && \
-    addgroup -g ${SERVICE_GID} ${SERVICE_GROUP} && \
-    adduser -g "${SERVICE_NAME} user" -D -h ${SERVICE_HOME} -G ${SERVICE_GROUP} -s /sbin/nologin -u ${SERVICE_UID} ${SERVICE_USER}
+ENV NAME=rancher-telemetry-stats
+RUN zypper install -y tar wget gzip
+RUN git clone --depth=1 --branch=${version} ${upstream} .
+RUN cd src/ && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GO111MODULE=on go build -v -a -tags netgo -o release/${NAME}
+RUN gzip -d src/GeoLite2-City.mmdb.gz
 
-USER $SERVICE_USER
-WORKDIR $SERVICE_HOME
+FROM registry.suse.com/bci/bci-micro:15.4
+ENV NAME=rancher-telemetry-stats
+WORKDIR /opt/${NAME}
+COPY --from=build /src/src/release/${NAME} /bin/
+COPY --from=build /src/src/GeoLite2-City.mmdb .
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
+ENTRYPOINT [ "/bin/bash", "entrypoint.sh" ]

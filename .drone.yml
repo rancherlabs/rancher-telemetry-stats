@@ -1,0 +1,66 @@
+---
+kind: pipeline
+name: default-linux-s390x
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+
+- name: build
+  image: plugins/docker
+  pull: if-not-exists
+  purge: true
+  volumes:
+  - name: docker
+    path: /var/run/docker.sock
+  settings:
+    custom_dns: 1.1.1.1
+    dockerfile: Dockerfile
+    repo: rancherlabs/rancher-telemetry-stats
+    tag: ${DRONE_TAG}
+    build_args:
+      - version=${DRONE_TAG}
+    dry_run: true
+  when:
+    event:
+    - push
+    branch:
+    - master 
+    instance:
+    - drone-pr.rancher.io
+
+- name: docker-publish
+  image: plugins/docker
+  pull: if-not-exists
+  purge: true
+  volumes:
+    - name: docker
+      path: /var/run/docker.sock
+  settings:
+    custom_dns: 1.1.1.1
+    dockerfile: Dockerfile
+    repo: rancherlabs/rancher-telemetry-stats
+    tag: ${DRONE_TAG}
+    build_args:
+      - version=${DRONE_TAG}
+    username:
+      from_secret: docker_username
+    password:
+      from_secret: docker_password
+  when:
+    event:
+    - tag
+    branch:
+    - master
+    instance:
+    - drone-publish.rancher.io
+  
+  depends_on:
+  - build
+
+volumes:
+- name: docker
+  host:
+    path: /var/run/docker.sock
