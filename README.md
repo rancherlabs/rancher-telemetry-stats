@@ -1,21 +1,9 @@
-[![](https://images.microbadger.com/badges/image/rawmind/rancher-telemetry-stats.svg)](https://microbadger.com/images/rawmind/rancher-telemetry-stats "Get your own image badge on microbadger.com")
-
 rancher-telemetry-stats
 =====================
 
-This image run rancher-telemetry-stats app. It comes from [rawmind/alpine-base][alpine-base].
+## Docker image
 
-## Build
-
-```
-docker build -t rawmind/rancher-telemetry-stats:<version> .
-```
-
-## Versions
-
-- `0.2-8` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.2-8/Dockerfile)
-- `0.1-3` [(Dockerfile)](https://github.com/rawmind0/rancher-telemetry-stats/blob/0.1-3/Dockerfile)
-
+The docker image will be created automatically when you create a tag on `master` branch. It will be published under `rancherlabs/rancher-telemetry-stats` with the same version that you created the tag.
 
 ## Usage
 
@@ -80,5 +68,3 @@ telemetry,city=city,country=country,country_isocode=country_isocode,id=XXXX,inst
 telemetry_apps,catalog=system-library,id=33221669,name=rancher-monitoring,uid=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX,version=0.1.1 total=4,uid="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX" 1496359077329645000
 telemetry_drivers,kind=cluster,name=imported,uid=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX total=1,uid="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX" 1496359077329645000
 ```
-
-[alpine-base]: https://github.com/rawmind0/alpine-base
