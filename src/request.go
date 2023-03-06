@@ -13,15 +13,18 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	_ "github.com/influxdata/influxdb1-client"
 	influx "github.com/influxdata/influxdb1-client/v2"
-	"github.com/oschwald/maxminddb-golang"
+	maxminddb "github.com/oschwald/maxminddb-golang"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 )
 
+// getJSONByUrl requests data from the given URL, authenticates with basic auth
+// and decodes the (mandatory) JSON result into target.
 func getJSONByUrl(url string, accessKey string, secretKey string, insecure bool, target interface{}) error {
 
 	start := time.Now()
@@ -68,8 +71,9 @@ func getJSONByUrl(url string, accessKey string, secretKey string, insecure bool,
 	return respFormatted
 }
 
+// getJSONByFile reads the content of a file and unmarshalls it to the target
+// variable.
 func getJSONByFile(name string, target interface{}) error {
-
 	byteValue, _ := ioutil.ReadFile(name)
 	return json.Unmarshal(byteValue, target)
 }
@@ -117,7 +121,7 @@ func newrequestByString(line, sep string) *Request {
 		req.LastIp = s[4]
 		err = json.Unmarshal([]byte(s[5]), &req.Record)
 		if err != nil {
-			log.Info("Error unmarshaling Record ", s[5], err)
+			log.Info("Error unmarshalling Record ", s[5], err)
 		}
 
 		return req
@@ -125,6 +129,12 @@ func newrequestByString(line, sep string) *Request {
 	return nil
 }
 
+// checkData tests if the record exists and whether certain fields are present
+// in the record. Depending on the record version, different fields are checked
+// for their existence.  It returns false if a key does not exist.  It only
+// returns true if all keys exist.
+//
+// It also populates the r.RecordVer field.
 func (r *Request) checkData() bool {
 	if len(r.Uid) < 3 || r.Record == nil {
 		return false
@@ -158,28 +168,30 @@ func (r *Request) printInflux() {
 	}
 }
 
+// getPoints collects the various InfluxDB points of the categories apps,
+// drivers and telemetry from the record previously obtained and returns them.
 func (r *Request) getPoints() []*influx.Point {
 	out := r.getTelemetryAppPoints()
 	out = append(out, r.getTelemetryDriverPoints()...)
 	return append(out, r.getTelemetryPoint())
 }
 
+// getTelemetryAppPoints collects the app points from the current record,
+// converts them to influx.Point and returns them. If the version of the record
+// is not 2, it will return an empty slice.
 func (r *Request) getTelemetryAppPoints() []*influx.Point {
-	out := []*influx.Point{}
+	// out := []*influx.Point{}
+	var out []*influx.Point
 	if r.RecordVer != "2" {
 		return out
 	}
 
-	var n = "telemetry_apps"
-	var v map[string]interface{}
-	var t map[string]string
-
-	t = map[string]string{
+	name := "telemetry_apps"
+	tags := map[string]string{
 		"id":  strconv.FormatInt(r.Id, 10),
 		"uid": r.Uid,
 	}
-
-	v = map[string]interface{}{
+	fields := map[string]interface{}{
 		"uid": r.Uid,
 	}
 	if apps, ok := r.Record["app"].(map[string]interface{}); ok {
@@ -189,16 +201,16 @@ func (r *Request) getTelemetryAppPoints() []*influx.Point {
 					for appKey := range appList {
 						if appVer, ok := appList[appKey].(map[string]interface{}); ok {
 							for verKey := range appVer {
-								t["catalog"] = catalogKey
-								t["name"] = appKey
-								t["version"] = verKey
-								v["total"] = appVer[verKey]
-								m, err := influx.NewPoint(n, t, v, r.LastSeen)
+								tags["catalog"] = catalogKey
+								tags["name"] = appKey
+								tags["version"] = verKey
+								fields["total"] = appVer[verKey]
+								p, err := influx.NewPoint(name, tags, fields, r.LastSeen)
 								if err != nil {
 									log.Warn(err)
 									continue
 								}
-								out = append(out, m)
+								out = append(out, p)
 							}
 						}
 					}
@@ -210,43 +222,42 @@ func (r *Request) getTelemetryAppPoints() []*influx.Point {
 	return out
 }
 
+// getTelemetryDriverPoints collects the driver points from the current record,
+// converts them to influx.Point and returns them. If the version of the record
+// is not 2, it will return an empty slice.
 func (r *Request) getTelemetryDriverPoints() []*influx.Point {
 	out := []*influx.Point{}
 	if r.RecordVer != "2" {
 		return out
 	}
 
-	var n = "telemetry_drivers"
-	var v map[string]interface{}
-	var t map[string]string
-
-	t = map[string]string{
+	name := "telemetry_drivers"
+	tags := map[string]string{
 		"id":  strconv.FormatInt(r.Id, 10),
 		"uid": r.Uid,
 	}
-
-	v = map[string]interface{}{
+	fields := map[string]interface{}{
 		"uid": r.Uid,
 	}
 	if clusterDrivers, ok := r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{}); ok {
 		for driverKey := range clusterDrivers {
-			t["kind"] = "cluster"
-			t["name"] = driverKey
-			v["total"] = clusterDrivers[driverKey]
-			m, err := influx.NewPoint(n, t, v, r.LastSeen)
+			tags["kind"] = "cluster"
+			tags["name"] = driverKey
+			fields["total"] = clusterDrivers[driverKey]
+			p, err := influx.NewPoint(name, tags, fields, r.LastSeen)
 			if err != nil {
 				log.Warn(err)
 				continue
 			}
-			out = append(out, m)
+			out = append(out, p)
 		}
 	}
 	if nodeDrivers, ok := r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{}); ok {
 		for driverKey := range nodeDrivers {
-			t["kind"] = "node"
-			t["name"] = driverKey
-			v["total"] = nodeDrivers[driverKey]
-			m, err := influx.NewPoint(n, t, v, r.LastSeen)
+			tags["kind"] = "node"
+			tags["name"] = driverKey
+			fields["total"] = nodeDrivers[driverKey]
+			m, err := influx.NewPoint(name, tags, fields, r.LastSeen)
 			if err != nil {
 				log.Warn(err)
 				continue
@@ -259,9 +270,9 @@ func (r *Request) getTelemetryDriverPoints() []*influx.Point {
 }
 
 func (r *Request) getTelemetryPoint() *influx.Point {
-	var n = "telemetry"
-	var v map[string]interface{}
-	var t map[string]string
+	var name = "telemetry"
+	var fields map[string]interface{}
+	var tags map[string]string
 
 	if r.RecordVer == "1" {
 		orch := r.Record["environment"].(map[string]interface{})["orch"].(map[string]interface{})
@@ -271,7 +282,7 @@ func (r *Request) getTelemetryPoint() *influx.Point {
 				orch[key] = float64(0)
 			}
 		}
-		v = map[string]interface{}{
+		fields = map[string]interface{}{
 			"ip":                   r.LastIp,
 			"uid":                  r.Uid,
 			"container_running":    r.Record["container"].(map[string]interface{})["running"],
@@ -293,78 +304,81 @@ func (r *Request) getTelemetryPoint() *influx.Point {
 		}
 	}
 	if r.RecordVer == "2" {
-		v = map[string]interface{}{
+		cluster := r.Record["cluster"].(map[string]interface{})
+		node := r.Record["node"].(map[string]interface{})
+		project := r.Record["project"].(map[string]interface{})
+		fields = map[string]interface{}{
 			"ip":                             r.LastIp,
 			"uid":                            r.Uid,
-			"cluster_active":                 r.Record["cluster"].(map[string]interface{})["active"],
-			"cluster_total":                  r.Record["cluster"].(map[string]interface{})["total"],
-			"cluster_namespace_total":        r.Record["cluster"].(map[string]interface{})["namespace"].(map[string]interface{})["total"],
-			"cluster_namespace_from_catalog": r.Record["cluster"].(map[string]interface{})["namespace"].(map[string]interface{})["from_catalog"],
-			"cluster_cpu_total":              r.Record["cluster"].(map[string]interface{})["cpu"].(map[string]interface{})["cores_total"],
-			"cluster_cpu_util":               r.Record["cluster"].(map[string]interface{})["cpu"].(map[string]interface{})["util_avg"],
-			"cluster_driver_aks":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["azureKubernetesService"],
-			"cluster_driver_eks":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["amazonElasticContainerService"],
-			"cluster_driver_gke":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["googleKubernetesEngine"],
-			"cluster_driver_imported":        r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["imported"],
-			"cluster_driver_rke":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["rancherKubernetesEngine"],
-			"cluster_driver_k3s":             r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["k3s"],
-			"cluster_driver_k3sBased":        r.Record["cluster"].(map[string]interface{})["driver"].(map[string]interface{})["k3sBased"],
-			"cluster_mem_mb_total":           r.Record["cluster"].(map[string]interface{})["mem"].(map[string]interface{})["mb_total"],
-			"cluster_mem_util":               r.Record["cluster"].(map[string]interface{})["mem"].(map[string]interface{})["util_avg"],
-			"node_active":                    r.Record["node"].(map[string]interface{})["active"],
-			"node_total":                     r.Record["node"].(map[string]interface{})["total"],
-			"node_driver_azure":              r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["azure"],
-			"node_driver_ec2":                r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["amazonec2"],
-			"node_driver_do":                 r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["digitalocean"],
-			"node_driver_openstack":          r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["openstack"],
-			"node_driver_vsphere":            r.Record["node"].(map[string]interface{})["driver"].(map[string]interface{})["vmwarevsphere"],
-			"node_from_template":             r.Record["node"].(map[string]interface{})["from_template"],
-			"node_imported":                  r.Record["node"].(map[string]interface{})["imported"],
-			"node_mem_mb_total":              r.Record["node"].(map[string]interface{})["mem"].(map[string]interface{})["mb_total"],
-			"node_mem_util":                  r.Record["node"].(map[string]interface{})["mem"].(map[string]interface{})["util_avg"],
-			"node_role_controlplane":         r.Record["node"].(map[string]interface{})["role"].(map[string]interface{})["controlplane"],
-			"node_role_etcd":                 r.Record["node"].(map[string]interface{})["role"].(map[string]interface{})["etcd"],
-			"node_role_worker":               r.Record["node"].(map[string]interface{})["role"].(map[string]interface{})["worker"],
-			"project_total":                  r.Record["project"].(map[string]interface{})["total"],
-			"project_namespace_total":        r.Record["project"].(map[string]interface{})["namespace"].(map[string]interface{})["total"],
-			"project_namespace_from_catalog": r.Record["project"].(map[string]interface{})["namespace"].(map[string]interface{})["from_catalog"],
-			"project_workload_total":         r.Record["project"].(map[string]interface{})["workload"].(map[string]interface{})["total"],
-			"project_pod_total":              r.Record["project"].(map[string]interface{})["pod"].(map[string]interface{})["total"],
+			"cluster_active":                 cluster["active"],
+			"cluster_total":                  cluster["total"],
+			"cluster_namespace_total":        cluster["namespace"].(map[string]interface{})["total"],
+			"cluster_namespace_from_catalog": cluster["namespace"].(map[string]interface{})["from_catalog"],
+			"cluster_cpu_total":              cluster["cpu"].(map[string]interface{})["cores_total"],
+			"cluster_cpu_util":               cluster["cpu"].(map[string]interface{})["util_avg"],
+			"cluster_driver_aks":             cluster["driver"].(map[string]interface{})["azureKubernetesService"],
+			"cluster_driver_eks":             cluster["driver"].(map[string]interface{})["amazonElasticContainerService"],
+			"cluster_driver_gke":             cluster["driver"].(map[string]interface{})["googleKubernetesEngine"],
+			"cluster_driver_imported":        cluster["driver"].(map[string]interface{})["imported"],
+			"cluster_driver_rke":             cluster["driver"].(map[string]interface{})["rancherKubernetesEngine"],
+			"cluster_driver_k3s":             cluster["driver"].(map[string]interface{})["k3s"],
+			"cluster_driver_k3sBased":        cluster["driver"].(map[string]interface{})["k3sBased"],
+			"cluster_mem_mb_total":           cluster["mem"].(map[string]interface{})["mb_total"],
+			"cluster_mem_util":               cluster["mem"].(map[string]interface{})["util_avg"],
+			"node_active":                    node["active"],
+			"node_total":                     node["total"],
+			"node_driver_azure":              node["driver"].(map[string]interface{})["azure"],
+			"node_driver_ec2":                node["driver"].(map[string]interface{})["amazonec2"],
+			"node_driver_do":                 node["driver"].(map[string]interface{})["digitalocean"],
+			"node_driver_openstack":          node["driver"].(map[string]interface{})["openstack"],
+			"node_driver_vsphere":            node["driver"].(map[string]interface{})["vmwarevsphere"],
+			"node_from_template":             node["from_template"],
+			"node_imported":                  node["imported"],
+			"node_mem_mb_total":              node["mem"].(map[string]interface{})["mb_total"],
+			"node_mem_util":                  node["mem"].(map[string]interface{})["util_avg"],
+			"node_role_controlplane":         node["role"].(map[string]interface{})["controlplane"],
+			"node_role_etcd":                 node["role"].(map[string]interface{})["etcd"],
+			"node_role_worker":               node["role"].(map[string]interface{})["worker"],
+			"project_total":                  project["total"],
+			"project_namespace_total":        project["namespace"].(map[string]interface{})["total"],
+			"project_namespace_from_catalog": project["namespace"].(map[string]interface{})["from_catalog"],
+			"project_workload_total":         project["workload"].(map[string]interface{})["total"],
+			"project_pod_total":              project["pod"].(map[string]interface{})["total"],
 		}
 
-		if value, ok := r.Record["cluster"].(map[string]interface{})["istio"]; ok {
-			v["cluster_istio_total"] = value
+		if value, ok := cluster["istio"]; ok {
+			fields["cluster_istio_total"] = value
 		}
-		if value, ok := r.Record["cluster"].(map[string]interface{})["monitoring"]; ok {
-			v["cluster_monitoring_total"] = value
+		if value, ok := cluster["monitoring"]; ok {
+			fields["cluster_monitoring_total"] = value
 		}
 
-		if logProvider, ok := r.Record["cluster"].(map[string]interface{})["logging"].(map[string]interface{}); ok {
+		if logProvider, ok := cluster["logging"].(map[string]interface{}); ok {
 			for key := range logProvider {
 				lowerKey := strings.ToLower(key)
 				if value, ok := logProvider[key].(float64); ok {
-					v["cluster_logging_provider_"+lowerKey] = int(value)
+					fields["cluster_logging_provider_"+lowerKey] = int(value)
 				} else {
-					v["cluster_logging_provider_"+lowerKey] = 0
+					fields["cluster_logging_provider_"+lowerKey] = 0
 				}
-				v["cluster_logging_provider_"+lowerKey] = logProvider[key]
+				fields["cluster_logging_provider_"+lowerKey] = logProvider[key]
 			}
 		}
-		
-		if cloudProvider, ok := r.Record["cluster"].(map[string]interface{})["cloudProvider"].(map[string]interface{}); ok {
+
+		if cloudProvider, ok := cluster["cloudProvider"].(map[string]interface{}); ok {
 			for key := range cloudProvider {
 				if value, ok := cloudProvider[key].(float64); ok {
 					if key == "gce" || key == "external" {
-						v["cluster_cloud_provider_"+key] = value
+						fields["cluster_cloud_provider_"+key] = value
 						continue
 					}
-					v["cluster_cloud_provider_"+key] = int(value)
+					fields["cluster_cloud_provider_"+key] = int(value)
 				} else {
 					if key == "gce" || key == "external" {
-						v["cluster_cloud_provider_"+key] = float64(0)
+						fields["cluster_cloud_provider_"+key] = float64(0)
 						continue
 					}
-					v["cluster_cloud_provider_"+key] = 0
+					fields["cluster_cloud_provider_"+key] = 0
 				}
 			}
 		}
@@ -375,7 +389,7 @@ func (r *Request) getTelemetryPoint() *influx.Point {
 		installImage = image.(string)
 	}
 
-	t = map[string]string{
+	tags = map[string]string{
 		"id":              strconv.FormatInt(r.Id, 10),
 		"uid":             r.Uid,
 		"ip":              r.LastIp,
@@ -388,12 +402,12 @@ func (r *Request) getTelemetryPoint() *influx.Point {
 		"status":          r.Status,
 	}
 
-	m, err := influx.NewPoint(n, t, v, r.LastSeen)
+	p, err := influx.NewPoint(name, tags, fields, r.LastSeen)
 	if err != nil {
 		log.Warn(err)
 	}
 
-	return m
+	return p
 }
 
 func (r *Request) Marshal() ([]byte, error) {
@@ -438,7 +452,6 @@ func (r *Request) getLocation(geoipdb string) {
 	r.Location.City = record.City.Names["en"]
 	r.Location.Country.Name = record.Country.Names["en"]
 	r.Location.Country.ISOCode = record.Country.ISOCode
-
 }
 
 func (r *Request) isNew() string {
@@ -451,6 +464,10 @@ func (r *Request) isNew() string {
 	}
 }
 
+// getData checks the validity of the record (fields and time) and retrieves the
+// location of the IP address in the record using the location database and
+// complements it in the request.  It also updates the status of the requests (based
+// on the time of the record). Returns false if any of those operations failed.
 func (r *Request) getData(geoipdb string) bool {
 	if !r.checkData() {
 		log.Debugf("Skipping request without correct data")
@@ -473,6 +490,7 @@ func (r *Request) getData(geoipdb string) bool {
 
 }
 
+// Params are the parameters necessary to create a Requests object.
 type Params struct {
 	url        string
 	hours      int
@@ -517,6 +535,8 @@ func RunRequests(c *cli.Context) error {
 	return nil
 }
 
+// Requests is the main struct where data is being fetched from one source and
+// put into another.
 type Requests struct {
 	Input   chan *Request
 	Output  chan *influx.Point
@@ -535,7 +555,7 @@ func newRequests(conf Params) *Requests {
 	r.Input = make(chan *Request, 1)
 	r.Output = make(chan *influx.Point, 1)
 	r.Exit = make(chan os.Signal, 1)
-	signal.Notify(r.Exit, os.Interrupt, os.Kill)
+	signal.Notify(r.Exit, os.Interrupt, syscall.SIGTERM)
 
 	customFormatter := new(log.TextFormatter)
 	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
@@ -607,16 +627,16 @@ func (r *Requests) sendToInflux() {
 }
 
 func (r *Requests) addReader() chan struct{} {
-	chan_new := make(chan struct{}, 1)
-	r.Readers = append(r.Readers, chan_new)
+	newChannel := make(chan struct{}, 1)
+	r.Readers = append(r.Readers, newChannel)
 
-	return chan_new
+	return newChannel
 }
 
 func (r *Requests) closeReaders() {
-	for _, r_chan := range r.Readers {
-		if r_chan != nil {
-			r_chan <- struct{}{}
+	for _, readerChannel := range r.Readers {
+		if readerChannel != nil {
+			readerChannel <- struct{}{}
 		}
 	}
 	r.Readers = nil
@@ -673,7 +693,6 @@ func (r *Requests) getDataByUrl() {
 }
 
 func (r *Requests) getDataByChan(stop chan struct{}) {
-
 	ticker := time.NewTicker(time.Second * time.Duration(r.Config.refresh))
 
 	go r.getData()
@@ -723,38 +742,43 @@ func (r *Requests) getDataByFile() {
 	}
 }
 
+// getJSON returns the active records. A record of a cluster is being treated as
+// active if the time of its creation is less than `hours` ago.  Depending on
+// the configuration, those records are either read from a file or fetched
+// remotely using the configured URL. The data of the record is stored in the
+// Requests struct.
 func (r *Requests) getJSON() error {
 	if r.Config.file != "" {
 		err := getJSONByFile(r.Config.file, r)
 		if err != nil {
-			return fmt.Errorf("Error getting JSON from file %s: %v", r.Config.file, err)
+			return fmt.Errorf("error getting JSON from file %s: %v", r.Config.file, err)
 		}
 		return nil
 	}
 
-	uri := "/admin/active?hours=" + strconv.Itoa(r.Config.hours)
-	err := getJSONByUrl(r.Config.url+uri, r.Config.accessKey, r.Config.secretKey, r.Config.insecure, r)
+	path := "/admin/active?hours=" + strconv.Itoa(r.Config.hours)
+	err := getJSONByUrl(r.Config.url+path, r.Config.accessKey, r.Config.secretKey, r.Config.insecure, r)
 	if err != nil {
-		return fmt.Errorf("Error getting JSON from URL %s: %v", r.Config.url+uri, err)
+		return fmt.Errorf("error getting JSON from URL %s: %v", r.Config.url+path, err)
 	}
 
 	return nil
 }
 
+// getData fetches the remote data and writes it to the r.Output channel of
+// Requests.
 func (r *Requests) getData() {
-	err := r.getJSON()
+	err := r.getJSON() // Fill r.Data
 	if err != nil {
 		log.Error("Error getting data ", err)
 	}
 
 	for _, req := range r.Data {
-		aux := Request{}
-		aux = req
-		if aux.getData(r.Config.geoipdb) {
+		if req.getData(r.Config.geoipdb) { // Validate r.Data and complement r.Location and r.Status
 			if r.Config.format == "json" {
-				r.Input <- &aux
-			} else {
-				for _, point := range aux.getPoints() {
+				r.Input <- &req
+			} else { // influx, the default
+				for _, point := range req.getPoints() {
 					r.Output <- point
 				}
 			}
