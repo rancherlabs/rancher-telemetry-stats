@@ -574,7 +574,7 @@ func (r *Requests) Close() {
 
 func (r *Requests) sendToInflux() {
 	var points []influx.Point
-	var index, p_len int
+	var pointsLength int
 
 	i := newInflux(r.Config.influxurl, r.Config.influxdb, r.Config.influxuser, r.Config.influxpass)
 
@@ -584,12 +584,11 @@ func (r *Requests) sendToInflux() {
 
 		ticker := time.NewTicker(time.Second * time.Duration(r.Config.flush))
 
-		index = 0
 		for {
 			select {
-			case <-connected:
+			case <-connected: // If data was sent to `connected`, that's a quit signal.
 				return
-			case <-ticker.C:
+			case <-ticker.C: // Try to send accumulated points we have.
 				if len(points) > 0 {
 					log.Info("Tick: Sending to influx ", len(points), " points")
 					if i.sendToInflux(points, 1) {
@@ -598,28 +597,33 @@ func (r *Requests) sendToInflux() {
 						return
 					}
 				}
-			case p := <-r.Output:
+			case p := <-r.Output: // Read a point from r.Output and add it to `points`.
 				if p != nil {
 					points = append(points, *p)
-					p_len = len(points)
-					if p_len == r.Config.limit {
-						log.Info("Batch: Sending to influx ", p_len, " points")
+					pointsLength = len(points)
+
+					// Send to influx if buffer limit is reached.
+					if pointsLength == r.Config.limit {
+						log.Info("Batch: Sending to influx ", pointsLength, " points")
 						if i.sendToInflux(points, 1) {
 							points = []influx.Point{}
 						} else {
-							return
+							log.Warn("Batch: Sending points failed")
+							return // If sending fails, exit the function.
 						}
 					}
-					index++
 				} else {
-					p_len = len(points)
-					if p_len > 0 {
-						log.Info("Batch: Sending to influx ", p_len, " points")
-						if i.sendToInflux(points, 1) {
-							points = []influx.Point{}
+					// p == nil! Send buffered points to Influx and quit.
+					pointsLength = len(points)
+					if pointsLength > 0 {
+						log.Info("Batch: Sending to influx ", pointsLength, " points")
+						if i.sendToInflux(points, 1) { // Send all points.
+							points = []influx.Point{} // Clear `points`.
+						} else {
+							log.Warn("Batch: Sending remaining points failed")
 						}
 					}
-					return
+					return // Exit the sendToInflux function.
 				}
 			}
 		}
@@ -642,6 +646,8 @@ func (r *Requests) closeReaders() {
 	r.Readers = nil
 }
 
+// getDataByUrl creates a few channels and starts reading data in a goroutine
+// and writing data in another goroutine.
 func (r *Requests) getDataByUrl() {
 	var in, out sync.WaitGroup
 	indone := make(chan struct{}, 1)
@@ -650,12 +656,14 @@ func (r *Requests) getDataByUrl() {
 	in.Add(1)
 	go func() {
 		defer in.Done()
+		// The data is read here.
 		r.getDataByChan(r.addReader())
 	}()
 
 	out.Add(1)
 	go func() {
 		defer out.Done()
+		// The data is written here.
 		r.getOutput()
 	}()
 
@@ -794,6 +802,8 @@ func (r *Requests) print() {
 	}
 }
 
+// getOutput prints or writes the data that has been retrieved in parallel from
+// another goroutine.
 func (r *Requests) getOutput() {
 	if r.Config.format == "json" {
 		r.printJson()

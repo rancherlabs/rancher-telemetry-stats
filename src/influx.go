@@ -37,7 +37,7 @@ func newInflux(url, db, user, pass string) *Influx {
 }
 
 func (i *Influx) Check(retry int) bool {
-	resp_time, _, err := i.cli.Ping(i.timeout)
+	respTime, _, err := i.cli.Ping(i.timeout)
 	if err != nil {
 		connected := i.Connect()
 		for index := 1; index <= retry && !connected; index++ {
@@ -45,36 +45,27 @@ func (i *Influx) Check(retry int) bool {
 			time.Sleep(time.Duration(1) * time.Second)
 			connected = i.Connect()
 			if connected {
-				resp_time, _, err = i.cli.Ping(i.timeout)
+				respTime, _, err = i.cli.Ping(i.timeout)
 			}
 		}
 		if err != nil {
 			log.Error("Failed to connect to influx ", i.url)
 			return false
 		}
-	} 
-	log.Info("Influx response time: ", resp_time)
+	}
+	log.Info("Influx response time: ", respTime)
 	return true
 }
 
 func (i *Influx) CheckConnect(interval int) chan bool {
 	ticker := time.NewTicker(time.Second * time.Duration(interval))
-
 	connected := make(chan bool)
 
 	go func() {
-		running := false
-		for {
-			select {
-			case <-ticker.C:
-				if !running {
-					running = true
-					if !i.Check(2) {
-						close(connected)
-						return
-					}
-					running = false
-				}
+		for range ticker.C {
+			if !i.Check(2) {
+				close(connected)
+				return
 			}
 		}
 	}()
@@ -140,7 +131,6 @@ func (i *Influx) newBatch() {
 	})
 	check(err, message)
 	log.Info(message)
-
 }
 
 func (i *Influx) newPoint(m influx.Point) {
