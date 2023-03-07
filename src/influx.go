@@ -19,7 +19,7 @@ type Influx struct {
 	db      string
 	user    string
 	pass    string
-	cli     influx.Client
+	client  influx.Client
 	batch   influx.BatchPoints
 	timeout time.Duration
 }
@@ -37,7 +37,7 @@ func newInflux(url, db, user, pass string) *Influx {
 }
 
 func (i *Influx) Check(retry int) bool {
-	respTime, _, err := i.cli.Ping(i.timeout)
+	respTime, _, err := i.client.Ping(i.timeout)
 	if err != nil {
 		connected := i.Connect()
 		for index := 1; index <= retry && !connected; index++ {
@@ -45,7 +45,7 @@ func (i *Influx) Check(retry int) bool {
 			time.Sleep(time.Duration(1) * time.Second)
 			connected = i.Connect()
 			if connected {
-				respTime, _, err = i.cli.Ping(i.timeout)
+				respTime, _, err = i.client.Ping(i.timeout)
 			}
 		}
 		if err != nil {
@@ -77,7 +77,7 @@ func (i *Influx) Connect() bool {
 	var err error
 	log.Info("Connecting to Influx...")
 
-	i.cli, err = influx.NewHTTPClient(influx.HTTPConfig{
+	i.client, err = influx.NewHTTPClient(influx.HTTPConfig{
 		Addr:     i.url,
 		Username: i.user,
 		Password: i.pass,
@@ -102,7 +102,7 @@ func (i *Influx) Init() {
 
 func (i *Influx) Close() {
 	message := "Closing Influx connection..."
-	err := i.cli.Close()
+	err := i.client.Close()
 	check(err, message)
 	log.Info(message)
 }
@@ -114,7 +114,7 @@ func (i *Influx) createDb() {
 	comm := "CREATE DATABASE " + i.db
 
 	q := influx.NewQuery(comm, "", "")
-	_, err = i.cli.Query(q)
+	_, err = i.client.Query(q)
 	if err != nil {
 		log.Error("[Error] ", err)
 	} else {
@@ -153,7 +153,7 @@ func (i *Influx) Write() {
 	log.Info("Writing batch points...")
 
 	// Write the batch
-	err := i.cli.Write(i.batch)
+	err := i.client.Write(i.batch)
 	if err != nil {
 		log.Error("[Error]: ", err)
 
@@ -175,7 +175,7 @@ func (i *Influx) sendToInflux(m []influx.Point, retry int) bool {
 
 func (i *Influx) doQuery(queryString string, retry int) (*influx.Response, error) {
 	if len(queryString) > 0 && i.Check(retry) {
-		return i.cli.Query(influx.NewQuery(queryString, i.db, "s"))
+		return i.client.Query(influx.NewQuery(queryString, i.db, "s"))
 	}
 	return nil, nil
 }
