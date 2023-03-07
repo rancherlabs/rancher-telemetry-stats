@@ -73,7 +73,9 @@ func (i *Influx) CheckConnect(interval int) chan bool {
 	return connected
 }
 
-func (i *Influx) Connect() bool {
+// Init creates a new HTTP client and checks the connection. If it can connect,
+// it makes sure necessary databases are created.
+func (i *Influx) Init() bool {
 	var err error
 	log.Info("Connecting to Influx...")
 
@@ -94,10 +96,6 @@ func (i *Influx) Connect() bool {
 	} else {
 		return false
 	}
-}
-
-func (i *Influx) Init() {
-	i.newBatch()
 }
 
 func (i *Influx) Close() {
@@ -141,10 +139,11 @@ func (i *Influx) newPoint(m influx.Point) {
 	i.batch.AddPoint(pt)
 }
 
-func (i *Influx) newPoints(m []influx.Point) {
+// addPoints adds new points to the current batch.
+func (i *Influx) addPoints(m []influx.Point) {
 	log.Info("Adding ", len(m), " points to batch...")
-	for index := range m {
-		i.newPoint(m[index])
+	for _, p := range m {
+		i.newPoint(p)
 	}
 }
 
@@ -164,13 +163,12 @@ func (i *Influx) Write() {
 
 func (i *Influx) sendToInflux(m []influx.Point, retry int) bool {
 	if i.Check(retry) {
-		i.Init()
-		i.newPoints(m)
+		i.newBatch()
+		i.addPoints(m)
 		i.Write()
 		return true
-	} else {
-		return false
 	}
+	return false
 }
 
 func (i *Influx) doQuery(queryString string, retry int) (*influx.Response, error) {
