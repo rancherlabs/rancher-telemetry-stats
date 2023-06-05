@@ -15,3 +15,6 @@ configMapGenerator:
       - "TELEMETRY_PG_USER=admin"
       - "TELEMETRY_PG_PASS=admin"
       - "TELEMETRY_PG_HOST=postgresql"
+    files:
+      - ./extra-config.yaml
+

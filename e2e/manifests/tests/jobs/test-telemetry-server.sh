@@ -26,18 +26,23 @@ while true; do
         continue
     fi
 
+    echo "DEBUG: \$json: $json"
+
     result=$(
         echo $json | jq -r '.data[0].record.cluster.active'
     )
-    if [[ "$?" -ne 0 || -z "$result" ]]; then
-        echo >&2 "error: couldn't get active cluster count"
-        exit 1
+    if [[ "$?" -ne 0 || -z "$result" || "$result" = "null" ]]; then
+        echo >&2 "error: couldn't get active cluster count, result returned: $result"
+        sleep 2
+        continue
     fi
 
     if [ "$result" -ne 1 ]; then
-        echo >&2 "error: wrong cluster count"
+        echo >&2 "error: wrong cluster count, result contains: $result"
         exit 1
     fi
+
+    echo "DEBUG: \$result: $result"
 
     echo "success"
     exit 0

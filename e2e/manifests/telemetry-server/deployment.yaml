@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
         - name: telemetry-server
-          image: rancher/telemetry:v0.6.1
+          image: foo
           livenessProbe:
             failureThreshold: 3
             periodSeconds: 30

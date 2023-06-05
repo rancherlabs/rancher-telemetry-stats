@@ -290,31 +290,37 @@ EOF
 }
 
 function install-telemetry-server() {
-  kubectl \
-    -n telemetry \
-    apply \
-    -k ./manifests/telemetry-server/base
-}
+  set -x
 
-function install-telemetry-server-dev() {
+  if [[ -z "${TELEMETRY_IMAGE}" ]]; then
+    echo >&2 "error: TELEMETRY_IMAGE is not set"
+    return 1
+  fi
+
+  yq eval ".spec.template.spec.containers[0].image = \"${TELEMETRY_IMAGE}\"" \
+    manifests/telemetry-server/deployment.yaml -i
+
   kubectl \
     -n telemetry \
     apply \
-    -k ./manifests/telemetry-server/dev
+    -k ./manifests/telemetry-server
 }
 
 function install-telemetry-client() {
-  kubectl \
-    -n telemetry \
-    apply \
-    -k ./manifests/telemetry-client/base
-}
+  set -x
 
-function install-telemetry-client-dev() {
+  if [[ -z "${TELEMETRY_IMAGE}" ]]; then
+    echo >&2 "error: TELEMETRY_IMAGE is not set"
+    return 1
+  fi
+
+  yq eval ".spec.template.spec.containers[0].image = \"${TELEMETRY_IMAGE}\"" \
+    manifests/telemetry-client/deployment.yaml -i
+
   kubectl \
     -n telemetry \
     apply \
-    -k ./manifests/telemetry-client/dev
+    -k ./manifests/telemetry-client
 }
 
 function install-base() {

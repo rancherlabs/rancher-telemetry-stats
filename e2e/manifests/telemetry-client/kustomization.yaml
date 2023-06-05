@@ -14,3 +14,5 @@ configMapGenerator:
       - CATTLE_URL=https://rancher.cattle-system/v3
       - TELEMETRY_TO_URL="http://telemetry-server:8115/publish"
     # - CATTLE_CERTIFICATE=""
+    files:
+      - ./extra-config.yaml

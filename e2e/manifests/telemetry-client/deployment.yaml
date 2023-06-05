@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: telemetry-client
-          image: rancher/telemetry:v0.6.1
+          image: $(TELEMETRY_IMAGE)
           resources:
             requests:
               memory: 64Mi
@@ -28,6 +28,8 @@ spec:
             - configMapRef:
                 name: telemetry-client
           env:
+            - name: TELEMETRY_INTERVAL
+              value: "1m"
             - name: CATTLE_TOKEN_KEY
               valueFrom:
                 secretKeyRef:
