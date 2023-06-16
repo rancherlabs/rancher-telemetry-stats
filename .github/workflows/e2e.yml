@@ -62,6 +62,11 @@ jobs:
         run: |
           echo "ACTUAL_TELEMETRY_BRANCH=${TELEMETRY_BRANCH}" >> $GITHUB_ENV
 
+      - name: Print TELEMETRY_BRANCH and ACTUAL_TELEMETRY_BRANCH
+        run: |
+          echo "TELEMETRY_BRANCH=${TELEMETRY_BRANCH}"
+          echo "ACTUAL_TELEMETRY_BRANCH=${ACTUAL_TELEMETRY_BRANCH}"
+
       - uses: actions/checkout@v3
         with: 
           repository: rancher/telemetry
