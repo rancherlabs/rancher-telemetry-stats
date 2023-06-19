@@ -107,7 +107,7 @@ jobs:
           export image_name="rancher/telemetry:${ACTUAL_TELEMETRY_BRANCH}-amd64"
           echo "TELEMETRY_IMAGE=${image_name}" >> $GITHUB_ENV
 
-      - name: Compile Telemetry Stats & build container image
+      - name: Compile & containerize Telemetry Stats
         run: |
           cd telemetry-stats
           set +x
@@ -115,7 +115,7 @@ jobs:
             --network=host \
             --build-arg VERSION=dev \
             --build-arg upstream= \
-            -t rancherlabs/rancher-telemetry-stats:${ACTUAL_TELEMETRY_BRANCH} \
+            -t rancherlabs/rancher-telemetry-stats:dev \
             .
 
       - name: Provision k3d Cluster
@@ -134,7 +134,7 @@ jobs:
 
       - name: Upload Telemetry Stats Docker image
         run: |
-          k3d image import -c ${{ env.CLUSTER_NAME }} rancherlabs/rancher-telemetry-stats:${ACTUAL_TELEMETRY_BRANCH}
+          k3d image import -c ${{ env.CLUSTER_NAME }} rancherlabs/rancher-telemetry-stats:dev
 
       - name: Install Rancher
         run: |
@@ -196,16 +196,27 @@ jobs:
         run: |
           cd telemetry-stats/e2e && source ./start && install-influx
 
+      - name: Install Telemetry Stats
+        run: |
+          cd telemetry-stats/e2e && source ./start && \
+            install-telemetry-stats-dev
+
       - name: Test installation
         run: |
           set -x
           ns="${ns:-telemetry}"
           cd telemetry-stats/e2e
           kubectl -n "${ns}" apply --wait -k manifests/tests
+
           kubectl -n telemetry wait \
             --for=condition=complete \
             --timeout=300s \
             job/test-telemetry-server
+
+          kubectl -n telemetry wait \
+            --for=condition=complete \
+            --timeout=300s \
+            job/test-influxdb
 
       - name: Collect logs
         if: failure()

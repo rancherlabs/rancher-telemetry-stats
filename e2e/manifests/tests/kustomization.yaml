@@ -4,8 +4,10 @@ namespace: telemetry
 
 resources:
 - jobs/test-telemetry-server.yaml
+- jobs/test-influxdb.yaml
 
 configMapGenerator:
   - name: tests
     files:
       - "jobs/test-telemetry-server.sh"
+      - "jobs/test-influxdb.sh"
