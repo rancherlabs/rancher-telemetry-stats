@@ -27,7 +27,7 @@ env:
   REPOSITORY: ${{ github.repository }}
   BRANCH: ${{ github.ref_name }}
   TELEMETRY_REPO: https://github.com/rancher/telemetry
-  TELEMETRY_BRANCH: ${{ vars.TELEMETRY_BRANCH }}
+  TELEMETRY_BRANCH: ${{ vars.TELEMETRY_BRANCH || 'release' }}
 
 jobs:
   single-cluster:
