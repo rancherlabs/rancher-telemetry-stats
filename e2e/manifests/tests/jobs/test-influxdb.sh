@@ -41,5 +41,5 @@ while true; do
     fi
 
     echo >&2 "warning: no records found, result contains: $result"
-    pause 1
+    sleep 1
 done
