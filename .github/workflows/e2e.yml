@@ -1,0 +1,233 @@
+name: E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run everyday day at 9:00 AM
+    - cron: '0 9 * * *'
+  pull_request:
+    paths-ignore:
+      - 'scripts/**'
+      - '*.md'
+  push:
+    branches:
+      - 'release/*"'
+      - 'main'
+      - 'master'
+
+env:
+  GOARCH: amd64
+  CGO_ENABLED: 0
+  SETUP_GO_VERSION: '^1.19'
+  HOST_NAME: telemetry-test  # for `start` script
+  CLUSTER_NAME: telemetry-test
+  TOKEN: ${{ secrets.TOKEN }}
+  REPO: telemetry-stats
+  REPO_URL: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY
+  REPOSITORY: ${{ github.repository }}
+  BRANCH: ${{ github.ref_name }}
+  TELEMETRY_REPO: https://github.com/rancher/telemetry
+  TELEMETRY_BRANCH: ${{ vars.TELEMETRY_BRANCH || 'release' }}
+
+jobs:
+  single-cluster:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          path: telemetry-stats
+
+      - name: Get latest tag for telemetry
+        uses: actions/github-script@v6
+        id: latest_tag
+        if: ${{ env.TELEMETRY_BRANCH == 'release' }}
+        with:
+          script: |
+            const { data } = await github.rest.repos.getLatestRelease({
+              owner: 'rancher',
+              repo: 'telemetry'
+            })
+            return data.tag_name;
+
+      - name: Replace TELEMETRY_BRANCH with latest tag
+        if: ${{ env.TELEMETRY_BRANCH == 'release' }}
+        run: |
+          export ACTUAL_TELEMETRY_BRANCH=${{ steps.latest_tag.outputs.result }}
+          echo "ACTUAL_TELEMETRY_BRANCH=${ACTUAL_TELEMETRY_BRANCH}" >> $GITHUB_ENV
+
+      - name: Set ACTUAL_TELEMETRY_BRANCH to the value of TELEMETRY_BRANCH if still unset
+        if: ${{ env.TELEMETRY_BRANCH != 'release' }}
+        run: |
+          echo "ACTUAL_TELEMETRY_BRANCH=${TELEMETRY_BRANCH}" >> $GITHUB_ENV
+
+      - name: Print TELEMETRY_BRANCH and ACTUAL_TELEMETRY_BRANCH
+        run: |
+          echo "TELEMETRY_BRANCH=${TELEMETRY_BRANCH}"
+          echo "ACTUAL_TELEMETRY_BRANCH=${ACTUAL_TELEMETRY_BRANCH}"
+
+      - uses: actions/checkout@v3
+        with: 
+          repository: rancher/telemetry
+          path: telemetry
+          ref: ${{ env.ACTUAL_TELEMETRY_BRANCH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.SETUP_GO_VERSION }}
+
+      - name: Compile & containerize Telemetry
+        if: ${{ env.TELEMETRY_BRANCH != 'release' }}
+        run: |
+          set -x
+
+          # Compile using dapper
+          cd telemetry
+          curl -sL https://releases.rancher.com/dapper/latest/dapper-$(uname -s)-$(uname -m) > /usr/local/bin/dapper
+          chmod +x /usr/local/bin/dapper
+          dapper
+
+          # Build container image
+          export image_name="rancher/telemetry:${ACTUAL_TELEMETRY_BRANCH}"
+
+          docker build \
+            --network=host \
+            -f package/Dockerfile \
+            -t ${image_name} \
+            .
+
+          # Make name of resulting image available to other steps
+          echo "TELEMETRY_IMAGE=${image_name}" >> $GITHUB_ENV
+
+      - name: Set remote container image for Telemetry release branch
+        if: ${{ env.TELEMETRY_BRANCH == 'release' }}
+        run: |
+          export image_name="rancher/telemetry:${ACTUAL_TELEMETRY_BRANCH}-amd64"
+          echo "TELEMETRY_IMAGE=${image_name}" >> $GITHUB_ENV
+
+      - name: Compile & containerize Telemetry Stats
+        run: |
+          cd telemetry-stats
+          set +x
+          docker build \
+            --network=host \
+            --build-arg VERSION=dev \
+            --build-arg upstream= \
+            -t rancherlabs/rancher-telemetry-stats:dev \
+            .
+
+      - name: Provision k3d Cluster
+        uses: AbsaOSS/k3d-action@v2
+        with:
+          cluster-name: ${{ env.CLUSTER_NAME }}
+          args: >-
+            --api-port 6443
+            --network "nw01"
+
+      - name: Upload Telemetry Docker image
+        if: ${{ env.TELEMETRY_BRANCH != 'release' }}
+        run: |
+          set -x
+          k3d image import -c ${{ env.CLUSTER_NAME }} rancher/telemetry:${ACTUAL_TELEMETRY_BRANCH}
+
+      - name: Upload Telemetry Stats Docker image
+        run: |
+          k3d image import -c ${{ env.CLUSTER_NAME }} rancherlabs/rancher-telemetry-stats:dev
+
+      - name: Install Rancher
+        run: |
+          set -ex
+
+          echo "working directory: $(pwd)"
+          echo "files in working directory: $(find)"
+
+          pip install httpie
+          cd telemetry-stats/e2e
+          source ./start
+          install-rancher
+
+          # Verify
+          for i in {0..20}; do
+            ip=$(
+              kubectl get -A ingress -o json |
+                jq -r '.items[0].status.loadBalancer.ingress[0].ip'
+            )
+
+            if [[ "${ip}" == "null" ]]; then
+              sleep 1
+              continue
+            fi
+
+            if http --check-status --verify=no GET "https://${ip}" Host:${HOST_NAME} ; then
+              >&2 echo "Rancher installation successfully verified"
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          >&2 echo "Rancher installation test failed"
+          exit 1
+
+      - name: Configure Rancher
+        run: |
+          cd telemetry-stats/e2e && \
+            source ./start && \
+            CLUSTER_IP=$(get-cluster-ip) && \
+            init-base "admin"
+
+      - name: Install PostgreSQL
+        run: |
+          cd telemetry-stats/e2e && source ./start && install-postgres-13.2
+
+      - name: Install Telemetry Server from $TELEMETRY_BRANCH branch
+        run: |
+          set -x
+          cd telemetry-stats/e2e && source ./start && install-telemetry-server
+
+      - name: Install Telemetry Client from $TELEMETRY_BRANCH branch
+        run: |
+          set -x
+          cd telemetry-stats/e2e && source ./start && install-telemetry-client
+
+      - name: Install InfluxDB
+        run: |
+          cd telemetry-stats/e2e && source ./start && install-influx
+
+      - name: Install Telemetry Stats
+        run: |
+          cd telemetry-stats/e2e && source ./start && \
+            install-telemetry-stats-dev
+
+      - name: Test installation
+        run: |
+          set -x
+          ns="${ns:-telemetry}"
+          cd telemetry-stats/e2e
+          kubectl -n "${ns}" apply --wait -k manifests/tests
+
+          kubectl -n telemetry wait \
+            --for=condition=complete \
+            --timeout=300s \
+            job/test-telemetry-server
+
+          kubectl -n telemetry wait \
+            --for=condition=complete \
+            --timeout=300s \
+            job/test-influxdb
+
+      - name: Collect logs
+        if: failure()
+        run: |
+          bash telemetry-stats/e2e/kubectl-dump telemetry
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v3
+        if: ${{ failure() && github.action }}
+        with:
+          name: gha-telemetry-dev-e2e-logs-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            kubectl-dump-*
+          retention-days: 2
