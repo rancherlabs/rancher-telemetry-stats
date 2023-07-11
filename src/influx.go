@@ -39,11 +39,11 @@ func newInflux(url, db, user, pass string) *Influx {
 func (i *Influx) Check(retry int) bool {
 	respTime, _, err := i.client.Ping(i.timeout)
 	if err != nil {
-		connected := i.Connect()
+		connected := i.Init()
 		for index := 1; index <= retry && !connected; index++ {
 			log.Warn("Influx disconnected. Reconnecting ", index+1, " of ", retry, "...")
 			time.Sleep(time.Duration(1) * time.Second)
-			connected = i.Connect()
+			connected = i.Init()
 			if connected {
 				respTime, _, err = i.client.Ping(i.timeout)
 			}
