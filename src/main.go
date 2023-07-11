@@ -26,7 +26,7 @@ func main() {
 		app.Version = VERSION
 	}
 
-	app.Flags = []cli.Flag{
+	flags := []cli.Flag{
 		cli.BoolFlag{
 			Name:   "debug",
 			Usage:  "debug logging",
@@ -144,6 +144,31 @@ func main() {
 			Value: 60,
 		},
 	}
+
+	app.Commands = []cli.Command{
+		{
+			Name:        "run",
+			Description: "continuously migrate recent data",
+			Action:      RunRequests,
+			Flags:       flags,
+		},
+		{
+			Name:        "restore",
+			Description: "restore data from a specific date or range and exit",
+			Action: func(c *cli.Context) {
+				cli.NewExitError(RunRequests(c), 1)
+			},
+			Flags: append(flags,
+				cli.StringFlag{
+					Name:     "dates",
+					Usage:    "dates in the format 2022-12-24, single value or separated by minus or comma",
+					Required: true,
+				},
+			),
+		},
+	}
+
+	app.Flags = flags
 	app.Before = before
 	app.Action = RunRequests
 

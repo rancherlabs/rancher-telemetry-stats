@@ -26,7 +26,6 @@ import (
 // getJSONByUrl requests data from the given URL, authenticates with basic auth
 // and decodes the (mandatory) JSON result into target.
 func getJSONByUrl(url string, accessKey string, secretKey string, insecure bool, target interface{}) error {
-
 	start := time.Now()
 
 	log.Info("Connecting to ", url)
@@ -51,29 +50,27 @@ func getJSONByUrl(url string, accessKey string, secretKey string, insecure bool,
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Error("Error creating GET request to collect JSON from API")
+		panic(err)
+	}
 	req.SetBasicAuth(accessKey, secretKey)
-	resp, err := client.Do(req)
 
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Error("Error Collecting JSON from API: ", err)
 		panic(err)
 	}
 
-	respFormatted := json.NewDecoder(resp.Body).Decode(target)
+	err = json.NewDecoder(resp.Body).Decode(target)
 
 	// Timings recorded as part of internal metrics
-	log.Info(
-		"Time to fetch JSON from URL: ",
-		float64((time.Since(start))/time.Millisecond),
-		"ms ",
-		url,
-	)
+	log.Info("Time to fetch JSON from pgsql: ", float64((time.Since(start))/time.Millisecond), " ms")
 
 	// Close the response body, the underlying Transport should then close the connection.
 	resp.Body.Close()
 
-	// return formatted JSON
-	return respFormatted
+	return err
 }
 
 // getJSONByFile reads the content of a file and unmarshalls it to the target
@@ -176,16 +173,14 @@ func (r *Request) printInflux() {
 // getPoints collects the various InfluxDB points of the categories apps,
 // drivers and telemetry from the record previously obtained and returns them.
 func (r *Request) getPoints() []*influx.Point {
-	out := r.getTelemetryAppPoints()
-	out = append(out, r.getTelemetryDriverPoints()...)
-	return append(out, r.getTelemetryPoint())
+	points := append(r.getTelemetryAppPoints(), r.getTelemetryDriverPoints()...)
+	return append(points, r.getTelemetryPoint())
 }
 
 // getTelemetryAppPoints collects the app points from the current record,
 // converts them to influx.Point and returns them. If the version of the record
 // is not 2, it will return an empty slice.
 func (r *Request) getTelemetryAppPoints() []*influx.Point {
-	// out := []*influx.Point{}
 	var out []*influx.Point
 	if r.RecordVer != "2" {
 		return out
@@ -469,10 +464,10 @@ func (r *Request) isNew() string {
 	}
 }
 
-// getData checks the validity of the record (fields and time) and retrieves the
-// location of the IP address in the record using the location database and
-// complements it in the request.  It also updates the status of the requests (based
-// on the time of the record). Returns false if any of those operations failed.
+// getData checks the validity of the record using `Request.checkData()` and
+// retrieves and fills the location of the IP address in the record using a
+// location database.  It also updates the status of the record (based on the
+// time of the record). Returns false if any of those operations failed.
 func (r *Request) getData(geoipdb string) bool {
 	if !r.checkData() {
 		log.Debugf("Skipping request without correct data")
@@ -483,7 +478,7 @@ func (r *Request) getData(geoipdb string) bool {
 	diff := now.Sub(r.LastSeen)
 
 	if diff < 0 {
-		log.Debugf("Skipping request with time in future ", r.LastSeen)
+		log.Debugf("Skipping request with time in future %v", r.LastSeen)
 		r.printJson()
 		return false
 	}
@@ -497,45 +492,62 @@ func (r *Request) getData(geoipdb string) bool {
 
 // Params are the parameters necessary to create a Requests object.
 type Params struct {
-	url        string
-	hours      int
-	accessKey  string
-	secretKey  string
-	influxurl  string
-	influxdb   string
-	influxuser string
-	influxpass string
-	insecure   bool
-	geoipdb    string
-	file       string
-	format     string
-	preview    bool
-	limit      int
-	refresh    int
-	flush      int
+	url          string
+	hours        int
+	accessKey    string
+	secretKey    string
+	influxurl    string
+	influxdb     string
+	influxuser   string
+	influxpass   string
+	insecure     bool
+	geoipdb      string
+	file         string
+	format       string
+	preview      bool
+	limit        int
+	refresh      int
+	flush        int
+	restoreDates Dates
 }
 
 func RunRequests(c *cli.Context) error {
-	params := Params{
-		url:        c.String("url"),
-		hours:      c.Int("hours"),
-		accessKey:  c.String("accesskey"),
-		secretKey:  c.String("secretkey"),
-		influxurl:  c.String("influxurl"),
-		influxdb:   c.String("influxdb"),
-		influxuser: c.String("influxuser"),
-		influxpass: c.String("influxpass"),
-		insecure:   c.Bool("insecure"),
-		geoipdb:    c.String("geoipdb"),
-		file:       c.String("file"),
-		format:     c.String("format"),
-		preview:    c.Bool("preview"),
-		limit:      c.Int("limit"),
-		refresh:    c.Int("refresh"),
-		flush:      c.Int("flush"),
+	restoreDates, err := NewDates(c.String("dates"))
+	if err != nil {
+		return err
 	}
-	req := newRequests(params)
-	req.getDataByUrl()
+	params := Params{
+		url:          c.String("url"),
+		hours:        c.Int("hours"),
+		accessKey:    c.String("accesskey"),
+		secretKey:    c.String("secretkey"),
+		influxurl:    c.String("influxurl"),
+		influxdb:     c.String("influxdb"),
+		influxuser:   c.String("influxuser"),
+		influxpass:   c.String("influxpass"),
+		insecure:     c.Bool("insecure"),
+		geoipdb:      c.String("geoipdb"),
+		file:         c.String("file"),
+		format:       c.String("format"),
+		preview:      c.Bool("preview"),
+		limit:        c.Int("limit"),
+		refresh:      c.Int("refresh"),
+		flush:        c.Int("flush"),
+		restoreDates: restoreDates,
+	}
+
+	if len(params.restoreDates) > 0 {
+		// Run once - restore operation
+		req := newRequests(params)
+		req.getDataByUrl()
+	} else {
+		// Run forever
+		for {
+			req := newRequests(params)
+			req.getDataByUrl()
+			time.Sleep(time.Duration(params.refresh) * time.Second)
+		}
+	}
 
 	return nil
 }
@@ -548,7 +560,7 @@ type Requests struct {
 	Exit    chan os.Signal
 	Readers []chan struct{}
 	Config  Params
-	Data    []Request `json:"data"`
+	Data    chan []Request
 }
 
 func newRequests(conf Params) *Requests {
@@ -560,6 +572,7 @@ func newRequests(conf Params) *Requests {
 	r.Input = make(chan *Request, 1)
 	r.Output = make(chan *influx.Point, 1)
 	r.Exit = make(chan os.Signal, 1)
+	r.Data = make(chan []Request, 1)
 	signal.Notify(r.Exit, os.Interrupt, syscall.SIGTERM)
 
 	customFormatter := new(log.TextFormatter)
@@ -577,6 +590,17 @@ func (r *Requests) Close() {
 
 }
 
+func (r *Requests) deleteForDay(day string) bool {
+	i := newInflux(r.Config.influxurl, r.Config.influxdb, r.Config.influxuser, r.Config.influxpass)
+	if i.Init() {
+		defer i.Close()
+		log.Infof("Deleting from measurement telemetry for day %s", day)
+		return i.deleteForDay(day)
+	}
+
+	return false
+}
+
 func (r *Requests) sendToInflux() {
 	var points []influx.Point
 	var pointsLength int
@@ -584,16 +608,17 @@ func (r *Requests) sendToInflux() {
 	i := newInflux(r.Config.influxurl, r.Config.influxdb, r.Config.influxuser, r.Config.influxpass)
 
 	if i.Init() {
-		connected := i.CheckConnect(r.Config.refresh)
+		disconnected := i.CheckConnect(r.Config.refresh)
 		defer i.Close()
 
 		ticker := time.NewTicker(time.Second * time.Duration(r.Config.flush))
+		defer ticker.Stop()
 
 		for {
 			select {
-			case <-connected: // If data was sent to `connected`, that's a quit signal.
+			case <-disconnected:
 				return
-			case <-ticker.C: // Try to send accumulated points we have.
+			case <-ticker.C: // Try to send the accumulated points we have.
 				if len(points) > 0 {
 					log.Info("Tick: Sending to influx ", len(points), " points")
 					if i.sendToInflux(points, 1) {
@@ -608,7 +633,7 @@ func (r *Requests) sendToInflux() {
 					pointsLength = len(points)
 
 					// Send to influx if buffer limit is reached.
-					if pointsLength == r.Config.limit {
+					if pointsLength >= r.Config.limit {
 						log.Info("Batch: Sending to influx ", pointsLength, " points")
 						if i.sendToInflux(points, 1) {
 							points = []influx.Point{}
@@ -626,6 +651,52 @@ func (r *Requests) sendToInflux() {
 							log.Warn("Batch: Sending remaining points failed")
 						}
 					}
+
+					// If we have any restore dates, this is a restore operation
+					// and we need to call some of the InfluxDB continuous query
+					// statements manually for the data to be aggregated into
+					// the required InfluxDB measurements, since the CQs
+					// configured in InfluxDB will never do that for data of a
+					// certain age.
+					for _, date := range r.Config.restoreDates {
+						log.Info("Running continuous queries for restored data...")
+
+						cqs := []string{
+							`SELECT distinct("uid") AS "uid" INTO "byUid_24h" FROM "telemetry"  WHERE time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status,install_version `,
+							`SELECT distinct("uid") AS "uid" INTO "by_country_24h" FROM "telemetry"  WHERE time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),country,country_isocode,uid,status `,
+							`SELECT last("container_total") AS "containers", last("project_pod_total") AS "pods" INTO "pods_containers_24h" FROM "telemetry"  WHERE time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status `,
+							`SELECT last("orch_kubernetes") AS "kubernetes", last("orch_mesos") AS "mesos", last("orch_swarm") AS "swarm", last("orch_windows") AS "windows", last("orch_cattle") AS "cattle" INTO "orchestrators_24h" FROM "telemetry" WHERE record_version = '1'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status`,
+							`SELECT last("service_total") AS "total", last("service_active") AS "active" INTO "services_24h" FROM "telemetry" WHERE record_version = '1'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status`,
+							`SELECT last("stack_total") AS "total", last("stack_active") AS "active", last("stack_from_catalog") AS "from_catalog" INTO "stacks_24h" FROM "telemetry" WHERE record_version = '1'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status`,
+							`SELECT last("host_active") AS "host", last("host_cpu_cores_total") AS "cpu", last("host_mem_mb_total") AS "memory" INTO "hosts_24h" FROM "telemetry" WHERE record_version = '1'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status`,
+							`SELECT last("container_total") AS "total", last("container_running") AS "running" INTO "containers_24h" FROM "telemetry" WHERE record_version = '1'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status`,
+							`SELECT last("ip") AS "ip", last("cluster_total") AS "total", last("cluster_active") AS "active", last("cluster_monitoring_total") AS "monitoring", last("cluster_istio_total") AS "istio", last("cluster_cpu_total") AS "cpu", last("cluster_driver_aks") AS "cluster_aks", last("cluster_driver_eks") AS "cluster_eks", last("cluster_driver_imported") AS "cluster_imported", last("cluster_driver_gke") AS "cluster_gke", last("cluster_driver_rke") AS "cluster_rke", last("cluster_driver_k3s") AS "cluster_k3s", last("cluster_driver_k3sBased") AS "cluster_k3sBased", last("cluster_cloud_provider_aws") AS "cluster_cloud_provider_aws",last("cluster_cloud_provider_azure") AS "cluster_cloud_provider_azure", last("cluster_cloud_provider_custom") AS "cluster_cloud_provider_custom", last("cluster_cloud_provider_external::integer") AS "cluster_cloud_provider_external", last("cluster_cloud_provider_gce::integer") AS "cluster_cloud_provider_gce",last("cluster_cloud_provider_openstack") AS "cluster_cloud_provider_openstack", last("cluster_cloud_provider_vsphere") AS "cluster_cloud_provider_vsphere", last("cluster_mem_mb_total") AS "mem_mb", last("cluster_logging_provider_custom") AS "cluster_logging_provider_custom", last("cluster_logging_provider_elasticsearch") AS "cluster_logging_provider_elasticsearch", last("cluster_logging_provider_fluentd") AS "cluster_logging_provider_fluentd", last("cluster_logging_provider_kafka") AS "cluster_logging_provider_kafka", last("cluster_logging_provider_splunk") AS "cluster_logging_provider_splunk", last("cluster_logging_provider_syslog") AS "cluster_logging_provider_syslog", last("cluster_namespace_total") AS "namespaces", last("cluster_namespace_from_catalog") AS "namespace_from_catalog" INTO "v2_clusters_24h" FROM "telemetry" WHERE record_version = '2'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status`,
+							`SELECT last("ip") AS "ip", last("project_total") AS "total", last("project_namespace_total") AS "namespaces", last("project_namespace_from_catalog") AS "namespace_from_catalog", last("project_pod_total") AS "pods", last("project_workload_total") AS "workloads" INTO "v2_projects_24h" FROM "telemetry" WHERE record_version = '2'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status`,
+							`SELECT last("ip") AS "ip", last("node_total") AS "total", last("node_active") AS "active", last("node_from_template") AS "from_template", last("node_driver_azure") AS "node_azure", last("node_driver_ec2") AS "node_ec2", last("node_driver_do") AS "node_do", last("node_driver_openstack") AS "node_openstack", last("node_driver_vsphere") AS "node_vsphere", last("node_imported") AS "imported", last("node_mem_mb_total") AS "mem_mb", last("node_role_controlplane") AS "controlplane", last("node_role_etcd") AS "etcd", last("node_role_worker") AS "worker" INTO "v2_nodes_24h" FROM "telemetry" WHERE record_version = '2'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(24h),uid,status`,
+							`SELECT last("total") AS "total", last("active") AS "active", last("cpu") AS "cpu", last("cluster_aks") AS "cluster_aks", last("cluster_eks") AS "cluster_eks", last("cluster_imported") AS "cluster_imported", last("cluster_gke") AS "cluster_gke", last("cluster_rke") AS "cluster_rke", last("cluster_cloud_provider_aws") AS "cluster_cloud_provider_aws",last("cluster_cloud_provider_azure") AS "cluster_cloud_provider_azure", last("cluster_cloud_provider_custom") AS "cluster_cloud_provider_custom", last("cluster_cloud_provider_external::integer") AS "cluster_cloud_provider_external", last("cluster_cloud_provider_gce::integer") AS "cluster_cloud_provider_gce",last("cluster_cloud_provider_openstack") AS "cluster_cloud_provider_openstack", last("cluster_cloud_provider_vsphere") AS "cluster_cloud_provider_vsphere", last("mem_mb") AS "mem_mb", last("namespaces") AS "namespaces", last("namespace_from_catalog") AS "namespace_from_catalog" INTO "v2_clusters_7d" FROM "v2_clusters_24h" WHERE time >= '2019-01-01'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(7d),uid,status`,
+							`SELECT last("total") AS "total", last("namespaces") AS "namespaces", last("namespace_from_catalog") AS "namespace_from_catalog", last("pods") AS "pods", last("workloads") AS "workloads" INTO "v2_projects_7d" FROM "v2_projects_24h" WHERE time >= '2020-01-01'  AND time >= '%s' AND time < '%s' + 1d GROUP BY time(7d),uid,status`,
+							`SELECT last("total") AS "total", last("active") AS "active", last("from_template") AS "from_template", last("node_azure") AS "node_azure", last("node_ec2") AS "node_ec2", last("node_do") AS "node_do", last("node_openstack") AS "node_openstack", last("node_vsphere") AS "node_vsphere", last("imported") AS "imported", last("mem_mb") AS "mem_mb", last("controlplane") AS "controlplane", last("etcd") AS "etcd", last("worker") AS "worker" INTO "v2_nodes_7d" FROM "v2_nodes_24h" WHERE time >= '2020-01-01'   AND time >= '%s' AND time < '%s' + 1d GROUP BY time(7d),uid,status`,
+							`SELECT TOP(total, uid, 10) as total, ip, active, mem_mb, cpu, namespaces INTO v2_top_clusters_by_total FROM v2_clusters_24h  WHERE time >= '%s' AND time < '%s' + 1d GROUP BY time(1d) `,
+							`SELECT TOP(active, uid, 10) as active, ip, total, mem_mb, cpu, namespaces INTO v2_top_clusters_by_active FROM v2_clusters_24h  WHERE time >= '%s' AND time < '%s' + 1d GROUP BY time(1d) `,
+							`SELECT TOP(total, uid, 10) as total, ip, pods, workloads, namespaces INTO v2_top_projects_by_total FROM v2_projects_24h  WHERE time >= '%s' AND time < '%s' + 1d GROUP BY time(1d) `,
+							`SELECT TOP(total, uid, 10) as total, ip, active, mem_mb, controlplane, etcd, worker INTO v2_top_nodes_by_total FROM v2_nodes_24h  WHERE time >= '%s' AND time < '%s' + 1d GROUP BY time(1d) `,
+							`SELECT last("total") AS "total", uid INTO "v2_apps_24h" FROM "telemetry_apps"  WHERE time >= '%s' AND time < '%s' + 1d GROUP BY time(1d),* `,
+							`SELECT last("total") AS "total", uid INTO "v2_drivers_24h" FROM "telemetry_drivers"  WHERE time >= '%s' AND time < '%s' + 1d GROUP BY time(1d),* `,
+						}
+
+						for j, cq := range cqs {
+							qry := fmt.Sprintf(cq, date, date)
+							log.WithFields(log.Fields{
+								"query": qry,
+								"no":    j + 1,
+							}).Debug()
+							_, err := i.doQuery(qry, 1)
+							if err != nil {
+								panic(fmt.Sprintf("error in CQ #%d: %v", j+1, err))
+							}
+						}
+					}
+
 					return // Exit the sendToInflux function.
 				}
 			}
@@ -633,90 +704,24 @@ func (r *Requests) sendToInflux() {
 	}
 }
 
-func (r *Requests) addReader() chan struct{} {
-	newChannel := make(chan struct{}, 1)
-	r.Readers = append(r.Readers, newChannel)
-
-	return newChannel
-}
-
-func (r *Requests) closeReaders() {
-	for _, readerChannel := range r.Readers {
-		if readerChannel != nil {
-			readerChannel <- struct{}{}
-		}
-	}
-	r.Readers = nil
-}
-
 // getDataByUrl creates a few channels and starts reading data in a goroutine
 // and writing data in another goroutine.
 func (r *Requests) getDataByUrl() {
-	var in, out sync.WaitGroup
-	indone := make(chan struct{}, 1)
-	outdone := make(chan struct{}, 1)
+	var wg sync.WaitGroup
 
-	in.Add(1)
+	wg.Add(1)
 	go func() {
-		defer in.Done()
-		// The data is read here.
-		r.getDataByChan(r.addReader())
+		r.getData()
+		wg.Done()
 	}()
 
-	out.Add(1)
+	wg.Add(1)
 	go func() {
-		defer out.Done()
-		// The data is written here.
-		r.getOutput()
+		r.writeOutput()
+		wg.Done()
 	}()
 
-	go func() {
-		in.Wait()
-		close(r.Input)
-		close(r.Output)
-		close(indone)
-	}()
-
-	go func() {
-		out.Wait()
-		close(outdone)
-	}()
-
-	for {
-		select {
-		case <-indone:
-			<-outdone
-			return
-		case <-outdone:
-			log.Error("Aborting...")
-			go r.closeReaders()
-			return
-		case <-r.Exit:
-			//close(r.Exit)
-			log.Info("Exit signal detected....Closing...")
-			go r.closeReaders()
-			select {
-			case <-outdone:
-				return
-			}
-		}
-	}
-}
-
-func (r *Requests) getDataByChan(stop chan struct{}) {
-	ticker := time.NewTicker(time.Second * time.Duration(r.Config.refresh))
-
-	go r.getData()
-
-	for {
-		select {
-		case <-ticker.C:
-			log.Info("Tick: Getting data...")
-			go r.getData()
-		case <-stop:
-			return
-		}
-	}
+	wg.Wait()
 }
 
 func (r *Requests) getDataByFile() {
@@ -727,27 +732,29 @@ func (r *Requests) getDataByFile() {
 		log.Error("Error reading file ", r.Config.file, err)
 	}
 
+	requests := <-r.Data
+
 	lines := bytes.Split(dat, []byte("\n"))
 
 	for _, line := range lines {
 		if line != nil {
 			req := newrequestByString(string(line), "|")
 			if req != nil {
-				r.Data = append(r.Data, *req)
+				requests = append(requests, *req)
 			}
 		}
 	}
 
-	for _, req := range r.Data {
-		aux := Request{}
-		aux = req
-		if aux.getData(r.Config.geoipdb) {
+	for _, req := range requests {
+		if req.getData(r.Config.geoipdb) {
 			if r.Config.format == "json" {
-				r.Input <- &aux
+				r.Input <- &req
+				close(r.Input)
 			} else {
-				for _, point := range aux.getPoints() {
+				for _, point := range req.getPoints() {
 					r.Output <- point
 				}
+				close(r.Output)
 			}
 		}
 	}
@@ -767,11 +774,59 @@ func (r *Requests) getJSON() error {
 		return nil
 	}
 
+	var response Response
+
 	path := "/admin/active?hours=" + strconv.Itoa(r.Config.hours)
-	err := getJSONByUrl(r.Config.url+path, r.Config.accessKey, r.Config.secretKey, r.Config.insecure, r)
+	err := getJSONByUrl(
+		r.Config.url+path,
+		r.Config.accessKey,
+		r.Config.secretKey,
+		r.Config.insecure,
+		&response,
+	)
 	if err != nil {
 		return fmt.Errorf("error getting JSON from URL %s: %v", r.Config.url+path, err)
 	}
+
+	r.Data <- response.Data
+	defer close(r.Data)
+
+	return nil
+}
+
+type Response struct {
+	Data []Request `json:"Data"`
+}
+
+func (r *Requests) getHistoryJSON() error {
+	if r.Config.file != "" {
+		err := getJSONByFile(r.Config.file, r)
+		if err != nil {
+			return fmt.Errorf("error getting history JSON from file %s: %v", r.Config.file, err)
+		}
+		return nil
+	}
+
+	go func() {
+		defer close(r.Data)
+		for _, date := range r.Config.restoreDates {
+			var response Response
+			path := "/admin/restore/" + date.String()
+			log.Debugf("fetching data from path %s", path)
+			err := getJSONByUrl(
+				r.Config.url+path,
+				r.Config.accessKey,
+				r.Config.secretKey,
+				r.Config.insecure,
+				&response,
+			)
+			if err != nil {
+				log.Fatalf("error getting JSON from URL %s: %v", r.Config.url+path, err)
+				return
+			}
+			r.Data <- response.Data
+		}
+	}()
 
 	return nil
 }
@@ -779,22 +834,49 @@ func (r *Requests) getJSON() error {
 // getData fetches the remote data and writes it to the r.Output channel of
 // Requests.
 func (r *Requests) getData() {
-	err := r.getJSON() // Fill r.Data
+	restoring := len(r.Config.restoreDates) > 0
+
+	// Fetch data and fill r.Data with it.
+	var err error
+	if !restoring {
+		err = r.getJSON()
+	} else {
+		err = r.getHistoryJSON()
+	}
 	if err != nil {
 		log.Error("Error getting data ", err)
 	}
 
-	for _, req := range r.Data {
-		if req.getData(r.Config.geoipdb) { // Validate r.Data and complement r.Location and r.Status
-			if r.Config.format == "json" {
-				r.Input <- &req
-			} else { // influx, the default
-				for _, point := range req.getPoints() {
-					r.Output <- point
+	if restoring {
+		// Remove the data to be restored, because we cannot overwrite it, as we
+		// don't have the exact time of those points any more (the time is used
+		// from installation table, not record table). Installation gets a
+		// timestamp a short while after the record has been received, it is not
+		// being taken from the record. As installation only holds a timestamp
+		// for the (first and) last record, previous timestamps for the last
+		// record are removed and lost forever.
+		for _, day := range r.Config.restoreDates {
+			if !r.deleteForDay(day.String()) {
+				close(r.Output)
+				return
+			}
+		}
+	}
+
+	for reqs := range r.Data {
+		for _, req := range reqs {
+			if req.getData(r.Config.geoipdb) { // Validate r.Data and complement r.Location and r.Status
+				if r.Config.format == "json" {
+					r.Input <- &req
+				} else { // influx, the default
+					for _, point := range req.getPoints() {
+						r.Output <- point
+					}
 				}
 			}
 		}
 	}
+	close(r.Output)
 }
 
 func (r *Requests) print() {
@@ -805,9 +887,9 @@ func (r *Requests) print() {
 	}
 }
 
-// getOutput prints or writes the data that has been retrieved in parallel from
-// another goroutine.
-func (r *Requests) getOutput() {
+// writeOutput writes the data that has been retrieved in parallel from another
+// goroutine to InfluxDB. The data is printed if `preview` is enabled.
+func (r *Requests) writeOutput() {
 	if r.Config.format == "json" {
 		r.printJson()
 	} else {
@@ -820,27 +902,21 @@ func (r *Requests) getOutput() {
 }
 
 func (r *Requests) printJson() {
-	for {
-		select {
-		case req := <-r.Input:
-			if req != nil {
-				req.printJson()
-			} else {
-				return
-			}
+	for req := range r.Input {
+		if req != nil {
+			req.printJson()
+		} else {
+			return
 		}
 	}
 }
 
 func (r *Requests) printInflux() {
-	for {
-		select {
-		case p := <-r.Output:
-			if p != nil {
-				fmt.Println(p.String())
-			} else {
-				return
-			}
+	for p := range r.Output {
+		if p != nil {
+			fmt.Println(p.String())
+		} else {
+			return
 		}
 	}
 }
