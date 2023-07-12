@@ -19,9 +19,8 @@ steps:
     custom_dns: 1.1.1.1
     dockerfile: Dockerfile
     repo: rancherlabs/rancher-telemetry-stats
-    tag: ${DRONE_TAG}
     build_args:
-      - version=${DRONE_TAG}
+      - version=master
     dry_run: true
   when:
     event:
